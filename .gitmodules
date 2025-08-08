@@ -1,0 +1,9 @@
+[submodule "backend/thirdparty/cpp-httplib"]
+	path = backend/thirdparty/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib
+[submodule "backend/thirdparty/json"]
+	path = backend/thirdparty/json
+	url = https://github.com/nlohmann/json
+[submodule "backend/thirdparty/spdlog"]
+	path = backend/thirdparty/spdlog
+	url = https://github.com/gabime/spdlog

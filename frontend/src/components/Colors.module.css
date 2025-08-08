@@ -1,0 +1,47 @@
+
+.root {
+  flex-grow: 1;
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: 'center';
+}
+
+.headerValue {
+  display: flex;
+  flex-direction: column;
+}
+
+.value {
+  margin-left: 10px;
+  margin-right: 20px;
+  margin-bottom: 5px;
+  width: 100px;
+}
+
+.yValue {
+  margin-left: 10px;
+  margin-right: 20px;
+  margin-bottom: 5px;
+  width: 100px;
+  height: 3px;
+}
+
+.colorPicked {
+  border: 1px solid black;
+  image-rendering: pixelated;
+  width: 80px;
+  height: 80px;
+  margin-left: 50px
+}
+
+.colors {
+  width: 100%;
+  height: 100%;
+  border: 1px solid black;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+

@@ -1,0 +1,38 @@
+name: Build, Pages
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+permissions:
+  contents: write
+jobs:
+  build-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Install nodejs
+        uses: actions/setup-node@v3
+      - name: Install frontend dependencies
+        working-directory: ./frontend/
+        run: npm ci
+      - name: Build frontend
+        working-directory: ./frontend/
+        run: npm run build
+      - name: Push GitHub Pages
+        working-directory: ./frontend/dist/
+        run: |
+          git init
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@noreply.github.com"
+          git add .
+          git commit -m 'GitHub Pages'
+          git push -f https://${GITHUB_ACTOR}:${{secrets.GITHUB_TOKEN}}@github.com/${GITHUB_REPOSITORY}.git HEAD:gh-pages
+      # - name: Install backend dependencies
+      #   run: git submodule update --init --recursive
+      # - name: Build backend
+      #   working-directory: ./backend/
+      #   run: |
+      #     cmake -S . -B build
+      #     cmake --build build
+
