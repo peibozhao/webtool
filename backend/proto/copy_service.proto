@@ -1,0 +1,24 @@
+
+syntax = "proto3";
+
+message SubmitRequest {
+  string text = 1;
+}
+
+message SubmitResponse {
+  string code = 1;
+}
+
+message RetrieveRequest {
+  string code = 1;
+}
+
+message RetrieveResponse {
+  string text = 1;
+}
+
+service CopyService {
+  rpc Submit (SubmitRequest) returns (SubmitResponse) {}
+  rpc Retrieve (RetrieveRequest) returns (RetrieveResponse) {}
+}
+

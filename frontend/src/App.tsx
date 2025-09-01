@@ -10,19 +10,34 @@ import Test from './components/Test.tsx'
 const router = [
   {
     path: '/',
-    element: <Home />
+    element: <Home />,
+    text: '主页',
+    description: '',
+    visible: true,
   }, {
     path: '/copy',
-    element: <Copy />
+    element: <Copy />,
+    text: '拷贝',
+    description: '',
+    visible: true,
   }, {
     path: '/colors',
-    element: <Colors />
+    element: <Colors />,
+    text: '颜色表',
+    description: '',
+    visible: true,
   }, {
     path: '/timestamp',
-    element: <Timestamp />
+    element: <Timestamp />,
+    text: '时间戳',
+    description: '',
+    visible: true,
   }, {
     path: '/test',
-    element: <Test />
+    element: <Test />,
+    text: '测试页面',
+    description: '',
+    visible: false,
   }
 ]
 
@@ -38,7 +53,9 @@ function App() {
   return (
     <div className={s.root}>
       <HashRouter>
-        <SideBar>
+        <SideBar items={router.filter(({ visible }) => visible).map(({ path, text }) => ({
+          to: path, text: text
+        }))}>
         </SideBar>
 
         <SideBarInnerApp>

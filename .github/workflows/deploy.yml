@@ -1,4 +1,4 @@
-name: Build, Pages
+name: Build, Deploy GitHub Pages
 on:
   workflow_dispatch:
   push:
@@ -20,6 +20,7 @@ jobs:
         working-directory: ./frontend/
         run: npm run build
       - name: Push GitHub Pages
+        if: github.ref_name == github.event.repository.default_branch
         working-directory: ./frontend/dist/
         run: |
           git init
@@ -28,11 +29,15 @@ jobs:
           git add .
           git commit -m 'GitHub Pages'
           git push -f https://${GITHUB_ACTOR}:${{secrets.GITHUB_TOKEN}}@github.com/${GITHUB_REPOSITORY}.git HEAD:gh-pages
-      # - name: Install backend dependencies
-      #   run: git submodule update --init --recursive
-      # - name: Build backend
-      #   working-directory: ./backend/
-      #   run: |
-      #     cmake -S . -B build
-      #     cmake --build build
+
+      - name: Cache backend build directory
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-backend-build
+          path: ./backend/build/
+      - name: Build backend test
+        working-directory: ./backend/
+        run: |
+          cmake -S . -B build
+          cmake --build build
 

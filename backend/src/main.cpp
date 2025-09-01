@@ -1,8 +1,24 @@
 
+#include "grpcpp/grpcpp.h"
+#include "grpcpp/server_builder.h"
 #include "httplib.h"
-#include "services/copy_service.h"
+#include "services/copy_text.h"
 #include "spdlog/spdlog.h"
 #include <format>
+
+grpc::ByteBuffer MessageToByteBuffer(const google::protobuf::Message &msg) {
+  std::string serialized;
+  if (!msg.SerializeToString(&serialized)) {
+    throw std::runtime_error("Failed to serialize message");
+  }
+
+  grpc::Slice slice(serialized.data(), serialized.size());
+  std::vector<grpc::Slice> slices;
+  slices.push_back(std::move(slice));
+
+  grpc::ByteBuffer buffer(&slices[0], slices.size());
+  return buffer;
+}
 
 std::unordered_map<std::string, std::string> path_params;
 
@@ -110,12 +126,60 @@ int main(int argc, char *argv[]) {
   default_headers.insert({"Access-Control-Allow-Origin", "*"});
   http_server.set_default_headers(default_headers);
 
-  CopyService copy_service(http_server);
+  // gRPC server
+  std::thread grcp_thread([] {
+    CopyText copy;
+    grpc::ServerBuilder server_builder;
+    server_builder.AddListeningPort("0.0.0.0:50051",
+                                    grpc::InsecureServerCredentials());
+    server_builder.RegisterService(&copy);
+    std::unique_ptr<grpc::Server> server = server_builder.BuildAndStart();
+    server->Wait();
+  });
 
-  http_server.Get("/api/test",
+  std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(
+      "ipv4:127.0.0.1:50051", grpc::InsecureChannelCredentials());
+
+  SPDLOG_INFO("Set copy service handler");
+  http_server.Post("/api/copy/submit", [&channel](const httplib::Request &req,
+                                                  httplib::Response &res) {
+    std::unique_ptr<CopyService::Stub> stub = CopyService::NewStub(channel);
+    SubmitRequest req_pb;
+    req_pb.set_text(req.get_param_value("text"));
+    grpc::ClientContext context;
+    SubmitResponse res_pb;
+    grpc::Status status = stub->Submit(&context, req_pb, &res_pb);
+    if (!status.ok()) {
+      SPDLOG_WARN("gRPC call Submmit failed. code={}, message={}",
+                  int(status.error_code()), status.error_message());
+      return;
+    }
+    res.set_content(std::format(R"({{"code": "{}"}})", res_pb.code()),
+                    "application/json");
+  });
+
+  http_server.Get("/api/copy/retrieve", [channel](const httplib::Request &req,
+                                                  httplib::Response &res) {
+    std::unique_ptr<CopyService::Stub> stub = CopyService::NewStub(channel);
+    RetrieveRequest req_pb;
+    req_pb.set_code(req.get_param_value("code"));
+    grpc::ClientContext context;
+    RetrieveResponse res_pb;
+    grpc::Status status = stub->Retrieve(&context, req_pb, &res_pb);
+    if (!status.ok()) {
+      SPDLOG_WARN("gRPC call Retrieve failed. code={}, message={}",
+                  int(status.error_code()), status.error_message());
+      return;
+    }
+    res.set_content(std::format(R"({{"text": "{}"}})", res_pb.text()),
+                    "application/json");
+  });
+
+  SPDLOG_INFO("Set check healthy service handler");
+  http_server.Get("/api/check_healthy",
                   [](const httplib::Request &req, httplib::Response &res) {
-                    std::cout << "in" << std::endl;
-                    SPDLOG_INFO("Receive test request");
+                    res.set_content("Hello", "text/plain; charset=utf-8");
+                    SPDLOG_INFO("Receive check healthy request");
                   });
 
   // Process

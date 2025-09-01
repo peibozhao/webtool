@@ -3,18 +3,16 @@ import { NavLink } from 'react-router-dom'
 import s from './SideBar.module.css'
 import clsx from 'clsx'
 
-const pages = [
-  { to: '/colors', text: '颜色表' },
-  { to: '/timestamp', text: '时间戳' },
-  { to: '/copy', text: '拷贝' },
-]
+interface SideBarProps {
+  items: { to: string, text: string }[];
+}
 
-function SideBar() {
+function SideBar({ items }: SideBarProps) {
   return (
     <div className={s.root}>
       <div className={s.rows}>
         {
-          pages.map(({ to, text }) => (
+          items.map(({ to, text }) => (
             <NavLink to={to} key={to}
               className={({ isActive }) => clsx(s.row, isActive ? s.rowActive : null)}
             >
