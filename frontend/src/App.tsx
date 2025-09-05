@@ -1,11 +1,12 @@
-import { HashRouter, useRoutes } from 'react-router-dom'
-import s from './App.module.css'
-import SideBar from './components/SideBar.tsx'
-import Home from './components/Home.tsx'
-import Copy from './components/Copy.tsx'
-import Colors from './components/Colors.tsx'
-import Timestamp from './components/Timestamp.tsx'
-import Test from './components/Test.tsx'
+import { HashRouter, useRoutes } from 'react-router-dom';
+import s from './App.module.css';
+import SideBar from './components/SideBar.tsx';
+import Home from './components/Home.tsx';
+import Copy from './components/Copy.tsx';
+import Colors from './components/Colors.tsx';
+import Timestamp from './components/Timestamp.tsx';
+import SuperResolution from './components/SuperResolution.tsx';
+import Test from './components/Test.tsx';
 
 const router = [
   {
@@ -15,9 +16,9 @@ const router = [
     description: '',
     visible: true,
   }, {
-    path: '/copy',
-    element: <Copy />,
-    text: '拷贝',
+    path: '/timestamp',
+    element: <Timestamp />,
+    text: '时间戳',
     description: '',
     visible: true,
   }, {
@@ -27,11 +28,17 @@ const router = [
     description: '',
     visible: true,
   }, {
-    path: '/timestamp',
-    element: <Timestamp />,
-    text: '时间戳',
+    path: '/copy',
+    element: <Copy />,
+    text: '拷贝',
     description: '',
     visible: true,
+  }, {
+    path: '/super_resolution',
+    element: <SuperResolution />,
+    text: '超分辨率',
+    description: '',
+    visible: false,
   }, {
     path: '/test',
     element: <Test />,
@@ -65,4 +72,4 @@ function App() {
   )
 }
 
-export default App
+export default App;

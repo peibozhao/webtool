@@ -1,9 +1,9 @@
 
-import { useState } from 'react'
+import { useState } from 'react';
 import { DatePicker, TimePicker, Switch } from 'antd';
 import dayjs from 'dayjs';
-import { useTitle } from '../hooks/useTitle'
-import s from './Timestamp.module.css'
+import { useTitle } from '../hooks/useTitle';
+import s from './Timestamp.module.css';
 
 type TimestampUnit = 's' | 'ms' | 'us' | 'ns';
 
@@ -15,7 +15,7 @@ const timeUnitsDemnominator: { [key in TimestampUnit]: number } = {
 };
 
 function Timestamp() {
-  useTitle('时间戳')
+  useTitle('时间戳');
 
   const [timestamp, setTimestamp] = useState(String(dayjs().unix()));
   const [timestampUnit, setTimestampUnit] = useState<TimestampUnit>('s');

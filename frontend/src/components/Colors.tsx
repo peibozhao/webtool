@@ -1,20 +1,20 @@
 
 import React, { useState, useRef, useEffect } from "react";
-import { useTitle } from '../hooks/useTitle'
-import s from './Colors.module.css'
+import { useTitle } from '../hooks/useTitle';
+import s from './Colors.module.css';
 
 function ColorValueLimit(value: number) {
   return Math.min(255, Math.max(0, Math.floor(value)));
 }
 
 function Colors() {
-  useTitle('颜色表')
+  useTitle('颜色表');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [y, setY] = useState(125)
-  const [u, setU] = useState('')
-  const [v, setV] = useState('')
-  const [colorRGB, setColorRGB] = useState({ r: '', g: '', b: '' })
+  const [y, setY] = useState(125);
+  const [u, setU] = useState('');
+  const [v, setV] = useState('');
+  const [colorRGB, setColorRGB] = useState({ r: '', g: '', b: '' });
 
   const width = 256;
   const height = 256;
@@ -74,7 +74,7 @@ function Colors() {
     const g = ColorValueLimit(newY - 0.344136 * (Number(u) - 128) - 0.714136 * (Number(v) - 128));
     const b = ColorValueLimit(newY + 1.772 * (Number(u) - 128));
 
-    setColorRGB({ r: String(r), g: String(g), b: String(b) })
+    setColorRGB({ r: String(r), g: String(g), b: String(b) });
   };
 
   return (

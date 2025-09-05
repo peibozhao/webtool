@@ -19,3 +19,4 @@ private:
   int current_code_ = 0;
   std::unordered_map<std::string, std::string> code_text_map_;
 };
+

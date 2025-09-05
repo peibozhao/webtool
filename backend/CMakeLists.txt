@@ -5,6 +5,10 @@ set(CMAKE_CXX_STANDARD 20)
 
 include(FetchContent)
 
+FetchContent_Declare(gflags
+  GIT_REPOSITORY https://github.com/gflags/gflags
+  GIT_TAG v2.2.2)
+
 FetchContent_Declare(cpp-httplib
   GIT_REPOSITORY https://github.com/yhirose/cpp-httplib
   GIT_TAG v0.26.0)
@@ -17,10 +21,20 @@ FetchContent_Declare(grpc
   GIT_REPOSITORY https://github.com/grpc/grpc
   GIT_TAG v1.74.1)
 
-add_definitions(-DSPDLOG_USE_STD_FORMAT)
-
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 set(FETCHCONTENT_QUIET OFF)
+
+FetchContent_MakeAvailable(gflags)
+include_directories(${gflags_BINARY_DIR}/include/)
+
+FetchContent_MakeAvailable(cpp-httplib)
+include_directories(${cpp-httplib_SOURCE_DIR})
+
+FetchContent_MakeAvailable(spdlog)
+add_definitions(-DSPDLOG_USE_STD_FORMAT)
+include_directories(${spdlog_SOURCE_DIR}/include)
+
+# gRPC
 set(ABSL_ENABLE_INSTALL ON)  # Avoid CMake errors in gRPC
 set(gRPC_BUILD_TESTS OFF)
 set(gRPC_BUILD_CSHARP_EXT OFF)
@@ -30,14 +44,13 @@ set(gRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN OFF)
 set(gRPC_BUILD_GRPC_PHP_PLUGIN OFF)
 set(gRPC_BUILD_GRPC_PYTHON_PLUGIN OFF)
 set(gRPC_BUILD_GRPC_RUBY_PLUGIN OFF)
-
-FetchContent_MakeAvailable(cpp-httplib spdlog grpc)
-include_directories(${cpp-httplib_SOURCE_DIR})
-include_directories(${spdlog_SOURCE_DIR}/include)
-
+FetchContent_MakeAvailable(grpc)
 set(PROTOBUF_PROTOC $<TARGET_FILE:protoc>)
 set(GRPC_CPP_PLUGIN $<TARGET_FILE:grpc_cpp_plugin>)
+include_directories(${protobuf_SOURCE_DIR}/src/)
+include_directories(${absl_SOURCE_DIR})
 
+# Compile proto file
 set(PROTO_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
 message(STATUS "Proto source directory ${PROTO_SOURCE_DIR}")
 set(PROTO_GENERATE_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto)
@@ -70,11 +83,9 @@ endforeach(PROTO_SOURCE_FILE)
 
 include_directories(${CMAKE_BINARY_DIR}/gens)  # gRPC proto generated
 include_directories(${PROTO_GENERATE_DIR})
-# For gRPC
-include_directories(${protobuf_SOURCE_DIR}/src/)
-include_directories(${absl_SOURCE_DIR})
 
+# Compile
 file(GLOB_RECURSE BACKEND_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 add_executable(backend ${BACKEND_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES})
-target_link_libraries(backend grpc++)
+target_link_libraries(backend grpc++ gflags)
 

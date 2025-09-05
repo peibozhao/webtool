@@ -1,5 +1,5 @@
 
-import { useTitle } from '../hooks/useTitle'
+import { useTitle } from '../hooks/useTitle';
 
 function Test() {
   useTitle('测试')

@@ -1,26 +1,18 @@
 
+#include "gflags/gflags.h"
+#include "google/protobuf/descriptor.h"
 #include "grpcpp/grpcpp.h"
 #include "grpcpp/server_builder.h"
 #include "httplib.h"
 #include "services/copy_text.h"
+#include "services/super_resolution.h"
 #include "spdlog/spdlog.h"
 #include <format>
 
-grpc::ByteBuffer MessageToByteBuffer(const google::protobuf::Message &msg) {
-  std::string serialized;
-  if (!msg.SerializeToString(&serialized)) {
-    throw std::runtime_error("Failed to serialize message");
-  }
+DEFINE_int32(port, 0, "Port for service");
+DEFINE_string(services, "", "gRPC service name");
 
-  grpc::Slice slice(serialized.data(), serialized.size());
-  std::vector<grpc::Slice> slices;
-  slices.push_back(std::move(slice));
-
-  grpc::ByteBuffer buffer(&slices[0], slices.size());
-  return buffer;
-}
-
-std::unordered_map<std::string, std::string> path_params;
+static constexpr int kGrpcPort = 50051;
 
 template <>
 struct std::formatter<std::unordered_map<std::string, std::string>> {
@@ -95,7 +87,37 @@ template <> struct std::formatter<httplib::Response> {
   }
 };
 
-int main(int argc, char *argv[]) {
+void StartGrpcServer() {
+  SPDLOG_INFO("gRPC server is starting");
+  grpc::ServerBuilder server_builder;
+  server_builder.AddListeningPort(std::format("0.0.0.0:{}", kGrpcPort),
+                                  grpc::InsecureServerCredentials());
+
+  for (const auto &service_range : FLAGS_services | std::views::split(',')) {
+    std::string_view service_name = std::string_view(
+        &*service_range.begin(), std::ranges::distance(service_range));
+    const google::protobuf::DescriptorPool *desc_pool =
+        google::protobuf::DescriptorPool::generated_pool();
+    desc_pool->FindServiceByName(service_name);
+
+    if (service_name == "copy") {
+      CopyText *copy = new CopyText();
+      server_builder.RegisterService(copy);
+    } else if (service_name == "super_resolution") {
+      SuperResolution *super_resolution = new SuperResolution();
+      server_builder.RegisterService(super_resolution);
+    } else {
+      SPDLOG_ERROR("Unknown service name {}", service_name);
+    }
+  }
+
+  std::unique_ptr<grpc::Server> server = server_builder.BuildAndStart();
+  server->Wait();
+  SPDLOG_ERROR("gRPC server is stopped");
+}
+
+void StartHttpServer() {
+  SPDLOG_INFO("HTTP server starting");
   httplib::Server http_server;
   http_server.set_logger(
       [](const httplib::Request &req, const httplib::Response &res) {
@@ -126,19 +148,9 @@ int main(int argc, char *argv[]) {
   default_headers.insert({"Access-Control-Allow-Origin", "*"});
   http_server.set_default_headers(default_headers);
 
-  // gRPC server
-  std::thread grcp_thread([] {
-    CopyText copy;
-    grpc::ServerBuilder server_builder;
-    server_builder.AddListeningPort("0.0.0.0:50051",
-                                    grpc::InsecureServerCredentials());
-    server_builder.RegisterService(&copy);
-    std::unique_ptr<grpc::Server> server = server_builder.BuildAndStart();
-    server->Wait();
-  });
-
-  std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(
-      "ipv4:127.0.0.1:50051", grpc::InsecureChannelCredentials());
+  std::shared_ptr<grpc::Channel> channel =
+      grpc::CreateChannel(std::format("ipv4:127.0.0.1:{}", kGrpcPort),
+                          grpc::InsecureChannelCredentials());
 
   SPDLOG_INFO("Set copy service handler");
   http_server.Post("/api/copy/submit", [&channel](const httplib::Request &req,
@@ -175,6 +187,22 @@ int main(int argc, char *argv[]) {
                     "application/json");
   });
 
+  SPDLOG_INFO("Set super resolution service handler");
+  http_server.Post(
+      "/api/super_resolution",
+      [channel](const httplib::Request &req, httplib::Response &res) {
+        if (req.form.files.empty()) {
+          throw std::invalid_argument("No files uploaded");
+        }
+
+        const httplib::FormData file_form_data = req.form.get_file("image");
+        if (file_form_data.content.empty()) {
+          throw std::invalid_argument("File content is empty");
+        }
+        // TODO
+        res.set_content(file_form_data.content, "image/jpg");
+      });
+
   SPDLOG_INFO("Set check healthy service handler");
   http_server.Get("/api/check_healthy",
                   [](const httplib::Request &req, httplib::Response &res) {
@@ -182,9 +210,26 @@ int main(int argc, char *argv[]) {
                     SPDLOG_INFO("Receive check healthy request");
                   });
 
-  // Process
-  SPDLOG_INFO("Server is starting");
-  http_server.listen("0.0.0.0", 8080);
-  SPDLOG_WARN("Server is stoped");
+  http_server.listen("0.0.0.0", FLAGS_port);
+  SPDLOG_ERROR("HTTP server is stoped");
+}
+
+int main(int argc, char *argv[]) {
+  gflags::ParseCommandLineFlags(&argc, &argv, false);
+  if (!FLAGS_services.empty()) {
+    std::thread([] {
+      SPDLOG_INFO("gRPC server thread is running");
+      StartGrpcServer();
+    }).detach();
+  }
+  if (FLAGS_port > 0) {
+    std::thread([] {
+      SPDLOG_INFO("HTTP server is runnign, listen port {}", FLAGS_port);
+      StartHttpServer();
+    }).detach();
+  }
+
+  SPDLOG_INFO("Block for server");
+  std::this_thread::sleep_for(std::chrono::hours::max());
   return 0;
 }

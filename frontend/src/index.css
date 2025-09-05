@@ -28,13 +28,17 @@ button:hover {
 }
 
 input {
+  --input-height: 40px;
   border: 1px solid #ffffff;
   border-radius: 4px;
   color: inherit;
   font-size: inherit;
-  height: 40px;
+  height: var(--input-height);
   margin: 10px;
   padding: 0 8px;
+}
+input[type="file"] {
+  line-height: var(--input-height);
 }
 input:focus {
   box-shadow: rgba(66, 153, 225, 0.6) 0px 0px 0px 3px;

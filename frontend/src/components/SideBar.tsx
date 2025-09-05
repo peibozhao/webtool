@@ -1,7 +1,7 @@
 
-import { NavLink } from 'react-router-dom'
-import s from './SideBar.module.css'
-import clsx from 'clsx'
+import { NavLink } from 'react-router-dom';
+import s from './SideBar.module.css';
+import clsx from 'clsx';
 
 interface SideBarProps {
   items: { to: string, text: string }[];
@@ -25,5 +25,5 @@ function SideBar({ items }: SideBarProps) {
   )
 }
 
-export default SideBar
+export default SideBar;
 

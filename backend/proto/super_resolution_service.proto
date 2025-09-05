@@ -1,0 +1,17 @@
+
+syntax = "proto3";
+
+message ImageRequest {
+  bytes image = 1;
+  // string image_type = 2;
+}
+
+message ImageResponse {
+  bytes image = 1;
+}
+
+service SuperResolutionService {
+  rpc Times4 (ImageRequest) returns (ImageResponse) {}
+  rpc Times2 (ImageRequest) returns (ImageResponse) {}
+}
+

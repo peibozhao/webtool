@@ -1,48 +1,48 @@
 
-import { useState } from 'react'
-import { useTitle } from '../hooks/useTitle'
-import s from './Copy.module.css'
+import { useState } from 'react';
+import { useTitle } from '../hooks/useTitle';
+import s from './Copy.module.css';
 
 function Copy() {
-  useTitle('拷贝')
+  useTitle('拷贝');
 
-  const [submitText, setSubmitText] = useState('')
-  const [submitButtonText, setSubmitButtonText] = useState('提交')
-  const [retrieveCode, setRetrieveCode] = useState('')
-  const [retrieveButtonText, setRetrieveButtonText] = useState('提取')
+  const [submitText, setSubmitText] = useState('');
+  const [submitButtonText, setSubmitButtonText] = useState('提交');
+  const [retrieveCode, setRetrieveCode] = useState('');
+  const [retrieveButtonText, setRetrieveButtonText] = useState('提取');
 
-  const backend_server = import.meta.env.VITE_BACKEND_SERVER
+  const backend_server = import.meta.env.VITE_BACKEND_SERVER;
 
-  const submitHandler = () => {
-    setSubmitButtonText('提交中...')
-    fetch(`${backend_server}/api/copy/submit`, {
-      method: 'POST',
-      body: `text=${submitText}`,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    }).then((res) => {
-      return res.json()
-    }).then((data) => {
-      setRetrieveCode(data.code)
-    }).catch((err) => {
-      alert(err.message)
-    }).finally(() => {
-      setSubmitButtonText('提交')
-    })
-    setSubmitText('')
+  const submitHandler = async () => {
+    setSubmitButtonText('提交中...');
+    try {
+      const response = await fetch(`${backend_server}/api/copy/submit`, {
+        method: 'POST',
+        body: `text=${submitText}`,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      })
+      const data = await response.json();
+      setRetrieveCode(data.code);
+      setSubmitButtonText('提交');
+    } catch (error) {
+      setSubmitButtonText('提交');
+      alert(error);
+    }
+    setSubmitText('');
   };
 
-  const retrieveHandler = () => {
-    setRetrieveButtonText('提取中...')
-    fetch(`${backend_server}/api/copy/retrieve?code=${retrieveCode}`).then((res) => {
-      return res.json()
-    }).then((data) => {
-      setSubmitText(data.text)
-    }).catch((err) => {
-      alert(err.message)
-    }).finally(() => {
-      setRetrieveButtonText('提取')
-    });
-    setRetrieveCode('')
+  const retrieveHandler = async () => {
+    setRetrieveButtonText('提取中...');
+    try {
+      const response = await fetch(`${backend_server}/api/copy/retrieve?code=${retrieveCode}`);
+      const data = await response.json();
+      setSubmitText(data.text);
+      setRetrieveButtonText('提取');
+    } catch (error) {
+      setRetrieveButtonText('提取');
+      alert(error);
+    }
+    setRetrieveCode('');
   }
 
   return (
@@ -63,5 +63,5 @@ function Copy() {
   )
 }
 
-export default Copy
+export default Copy;
 

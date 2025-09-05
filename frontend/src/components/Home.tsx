@@ -1,6 +1,6 @@
 
 function Home() {
-  return <> Home </>
+  return <> </>
 }
 
 export default Home;
