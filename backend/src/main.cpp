@@ -6,6 +6,7 @@
 #include "httplib.h"
 #include "services/copy_text.h"
 #include "services/super_resolution.h"
+#include "services/qr_code.h"
 #include "spdlog/spdlog.h"
 #include <format>
 
@@ -71,10 +72,10 @@ template <> struct std::formatter<httplib::Request> {
   auto format(const httplib::Request &request, format_context &fc) const {
     return std::format_to(fc.out(),
                           "address({}:{}), method({}), path({}), params({}), "
-                          "headers({}), body({})",
+                          "headers({})",
                           request.remote_addr, request.remote_port,
                           request.method, request.path, request.params,
-                          request.headers, request.body);
+                          request.headers);
   }
 };
 
@@ -82,8 +83,8 @@ template <> struct std::formatter<httplib::Response> {
   constexpr auto parse(format_parse_context &fpc) { return fpc.begin(); }
 
   auto format(const httplib::Response &response, format_context &fc) const {
-    return std::format_to(fc.out(), "staus({}), header({}), body({})",
-                          response.status, response.headers, response.body);
+    return std::format_to(fc.out(), "staus({}), header({})", response.status,
+                          response.headers);
   }
 };
 
@@ -106,9 +107,14 @@ void StartGrpcServer() {
     } else if (service_name == "super_resolution") {
       SuperResolution *super_resolution = new SuperResolution();
       server_builder.RegisterService(super_resolution);
+    } else if (service_name == "qr_code") {
+      QrCode *qr_code = new QrCode();
+      server_builder.RegisterService(qr_code);
     } else {
-      SPDLOG_ERROR("Unknown service name {}", service_name);
+      SPDLOG_WARN("Unknown service name {}", service_name);
+      continue;
     }
+    SPDLOG_INFO("Register {} grpc service", service_name);
   }
 
   std::unique_ptr<grpc::Server> server = server_builder.BuildAndStart();
@@ -202,6 +208,39 @@ void StartHttpServer() {
         // TODO
         res.set_content(file_form_data.content, "image/jpg");
       });
+
+  SPDLOG_INFO("Set QR code service handler");
+  http_server.Post("/api/qr_code/parse", [channel](const httplib::Request &req,
+                                                   httplib::Response &res) {
+    if (req.form.files.empty()) {
+      throw std::invalid_argument("No files uploaded");
+    }
+
+    const httplib::FormData file_form_data = req.form.get_file("image");
+    if (file_form_data.content.empty()) {
+      throw std::invalid_argument("File content is empty");
+    }
+    std::unique_ptr<QrCodeService::Stub> stub = QrCodeService::NewStub(channel);
+    grpc::ClientContext context;
+    ParseTextRequest parse_request;
+    ParseTextResponse parse_response;
+    parse_request.set_image(file_form_data.content);
+    grpc::Status grpc_status =
+        stub->ParseText(&context, parse_request, &parse_response);
+    res.set_content(std::format(R"({{"text":"{}"}})", parse_response.text()),
+                    "application/json");
+  });
+  http_server.Post("/api/qr_code/generate", [channel](
+                                                const httplib::Request &req,
+                                                httplib::Response &res) {
+    std::unique_ptr<QrCodeService::Stub> stub = QrCodeService::NewStub(channel);
+    GenerateImageRequest req_pb;
+    req_pb.set_text(req.get_param_value("text"));
+    grpc::ClientContext context;
+    GenerateImageResponse res_pb;
+    grpc::Status grpc_status = stub->GenerateImage(&context, req_pb, &res_pb);
+    res.set_content(res_pb.image(), "image/jpg");
+  });
 
   SPDLOG_INFO("Set check healthy service handler");
   http_server.Get("/api/check_healthy",

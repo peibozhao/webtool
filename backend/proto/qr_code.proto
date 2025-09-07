@@ -1,0 +1,24 @@
+
+syntax = "proto3";
+
+message GenerateImageRequest {
+  string text = 1;
+}
+
+message GenerateImageResponse {
+  bytes image = 1;
+}
+
+message ParseTextRequest {
+  bytes image = 1;
+}
+
+message ParseTextResponse {
+  string text = 1;
+}
+
+service QrCodeService {
+  rpc GenerateImage (GenerateImageRequest) returns (GenerateImageResponse) {}
+  rpc ParseText (ParseTextRequest) returns (ParseTextResponse) {}
+}
+

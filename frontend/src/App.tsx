@@ -6,6 +6,7 @@ import Copy from './components/Copy.tsx';
 import Colors from './components/Colors.tsx';
 import Timestamp from './components/Timestamp.tsx';
 import SuperResolution from './components/SuperResolution.tsx';
+import QrCode from './components/QrCode.tsx';
 import Test from './components/Test.tsx';
 
 const router = [
@@ -39,6 +40,12 @@ const router = [
     text: '超分辨率',
     description: '',
     visible: false,
+  }, {
+    path: '/qr_code',
+    element: <QrCode />,
+    text: '二维码',
+    description: '',
+    visible: true,
   }, {
     path: '/test',
     element: <Test />,

@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 project(webtool)
 set(CMAKE_CXX_STANDARD 20)
 
+include(ExternalProject)
 include(FetchContent)
 
 FetchContent_Declare(gflags
@@ -84,8 +85,28 @@ endforeach(PROTO_SOURCE_FILE)
 include_directories(${CMAKE_BINARY_DIR}/gens)  # gRPC proto generated
 include_directories(${PROTO_GENERATE_DIR})
 
+# opencv
+set(opencv_SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-src)
+set(opencv_BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-build)
+set(opencv_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-install)
+
+ExternalProject_Add(
+  opencv
+  GIT_REPOSITORY https://github.com/opencv/opencv
+  GIT_TAG 4.12.0
+  UPDATE_DISCONNECTED ON
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${opencv_INSTALL_DIR}
+  SOURCE_DIR ${opencv_SOURCE_DIR}
+  BINARY_DIR ${opencv_BINARY_DIR}
+  BUILD_ALWAYS OFF
+)
+
+find_package(opencv PATHS ${opencv_INSTALL_DIR})
+
+include_directories(${opencv_INCLUDE_DIRS})
+
 # Compile
 file(GLOB_RECURSE BACKEND_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 add_executable(backend ${BACKEND_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES})
-target_link_libraries(backend grpc++ gflags)
+target_link_libraries(backend grpc++ gflags ${OpenCV_LIBRARIES})
 
