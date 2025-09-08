@@ -101,12 +101,13 @@ ExternalProject_Add(
   BUILD_ALWAYS OFF
 )
 
-find_package(opencv PATHS ${opencv_INSTALL_DIR})
-
-include_directories(${opencv_INCLUDE_DIRS})
+include_directories(${opencv_INSTALL_DIR}/include/opencv4)
+link_directories(${opencv_INSTALL_DIR}/lib)
 
 # Compile
 file(GLOB_RECURSE BACKEND_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 add_executable(backend ${BACKEND_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES})
-target_link_libraries(backend grpc++ gflags ${OpenCV_LIBRARIES})
+target_link_libraries(backend grpc++ gflags opencv_imgproc opencv_objdetect opencv_imgcodecs opencv_core)
+
+add_dependencies(backend opencv)
 

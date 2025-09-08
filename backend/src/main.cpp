@@ -269,6 +269,6 @@ int main(int argc, char *argv[]) {
   }
 
   SPDLOG_INFO("Block for server");
-  std::this_thread::sleep_for(std::chrono::hours::max());
+  std::this_thread::sleep_for(std::chrono::years(1));
   return 0;
 }
