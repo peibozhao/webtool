@@ -10,7 +10,7 @@
 #include "spdlog/spdlog.h"
 #include <format>
 
-DEFINE_int32(port, 0, "Port for service");
+DEFINE_int32(port, 8080, "Port for service");
 DEFINE_string(services, "", "gRPC service name");
 
 static constexpr int kGrpcPort = 50051;

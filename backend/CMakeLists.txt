@@ -1,6 +1,7 @@
 
 cmake_minimum_required(VERSION 3.16)
-project(webtool)
+
+project(webtool LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 
 include(ExternalProject)
@@ -103,11 +104,21 @@ ExternalProject_Add(
 
 include_directories(${opencv_INSTALL_DIR}/include/opencv4)
 link_directories(${opencv_INSTALL_DIR}/lib)
+set(opencv_LIBRARIES opencv_imgproc opencv_objdetect opencv_imgcodecs opencv_core)
 
 # Compile
 file(GLOB_RECURSE BACKEND_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
 add_executable(backend ${BACKEND_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES})
-target_link_libraries(backend grpc++ gflags opencv_imgproc opencv_objdetect opencv_imgcodecs opencv_core)
-
+target_link_libraries(backend grpc++ gflags ${opencv_LIBRARIES})
 add_dependencies(backend opencv)
+
+# Install
+if (${CMAKE_SYSTEM_NAME} STREQUAL Linux)
+  install(TARGETS backend
+    COMPONENT Runtime
+    RUNTIME_DEPENDENCIES
+      POST_EXCLUDE_REGEXES "^/usr/.*" "^/lib/.*"
+  )
+endif()
 

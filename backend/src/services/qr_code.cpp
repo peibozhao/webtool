@@ -8,6 +8,7 @@
 grpc::Status QrCode::GenerateImage(grpc::ServerContext *context,
                                    const ::GenerateImageRequest *request,
                                    GenerateImageResponse *response) {
+  SPDLOG_INFO("Generate QR code for text {}", request->text());
   cv::QRCodeEncoder::Params qr_encoder_params;
   std::shared_ptr<cv::QRCodeEncoder> qr_encoder =
       cv::QRCodeEncoder::create(qr_encoder_params);

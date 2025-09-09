@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { useTitle } from '../hooks/useTitle';
+import { backendServer } from '../common/utils';
 import s from './Copy.module.css';
 
 function Copy() {
@@ -11,7 +12,7 @@ function Copy() {
   const [retrieveCode, setRetrieveCode] = useState('');
   const [retrieveButtonText, setRetrieveButtonText] = useState('提取');
 
-  const backend_server = import.meta.env.VITE_BACKEND_SERVER;
+  const backend_server = backendServer();
 
   const submitHandler = async () => {
     setSubmitButtonText('提交中...');

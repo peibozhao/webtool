@@ -1,13 +1,13 @@
 
 import { useState } from "react";
+import { backendServer } from '../common/utils';
 
 function QrCode() {
   const [text, setText] = useState("");
   const [imageUrl, setImageUrl] = useState<null | string>(null);
   const [imageFile, setImageFile] = useState<null | File>(null);
-  // const [localImageFile, setLocalImageFile] = useState<{ location: string | null, file: File | null }>({ location: null, file: null });
 
-  const backend_server = import.meta.env.VITE_BACKEND_SERVER;
+  const backend_server = backendServer();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
