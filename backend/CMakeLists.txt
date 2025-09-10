@@ -87,8 +87,6 @@ include_directories(${CMAKE_BINARY_DIR}/gens)  # gRPC proto generated
 include_directories(${PROTO_GENERATE_DIR})
 
 # opencv
-set(opencv_SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-src)
-set(opencv_BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-build)
 set(opencv_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-install)
 
 ExternalProject_Add(
@@ -96,9 +94,15 @@ ExternalProject_Add(
   GIT_REPOSITORY https://github.com/opencv/opencv
   GIT_TAG 4.12.0
   UPDATE_DISCONNECTED ON
-  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${opencv_INSTALL_DIR}
-  SOURCE_DIR ${opencv_SOURCE_DIR}
-  BINARY_DIR ${opencv_BINARY_DIR}
+  CMAKE_ARGS
+    -DCMAKE_INSTALL_PREFIX=${opencv_INSTALL_DIR}
+    -DBUILD_TESTS=OFF
+    -DBUILD_PERF_TESTS=OFF
+    -DBUILD_opencv_apps=OFF
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-src
+  BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-build
+  STAMP_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-stamp
+  TMP_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-tmp
   BUILD_ALWAYS OFF
 )
 
@@ -108,7 +112,7 @@ set(opencv_LIBRARIES opencv_imgproc opencv_objdetect opencv_imgcodecs opencv_cor
 
 # Compile
 file(GLOB_RECURSE BACKEND_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
-set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
+set(CMAKE_INSTALL_RPATH ../lib)
 add_executable(backend ${BACKEND_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES})
 target_link_libraries(backend grpc++ gflags ${opencv_LIBRARIES})
 add_dependencies(backend opencv)
