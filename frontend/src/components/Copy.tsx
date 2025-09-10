@@ -27,7 +27,7 @@ function Copy() {
       setSubmitButtonText('提交');
     } catch (error) {
       setSubmitButtonText('提交');
-      alert(error);
+      console.error("异常: ", error);
     }
     setSubmitText('');
   };
@@ -41,7 +41,7 @@ function Copy() {
       setRetrieveButtonText('提取');
     } catch (error) {
       setRetrieveButtonText('提取');
-      alert(error);
+      console.error("异常: ", error);
     }
     setRetrieveCode('');
   }

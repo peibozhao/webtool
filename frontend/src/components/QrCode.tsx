@@ -27,7 +27,8 @@ function QrCode() {
       const data = await response.blob();
       setImageUrl(URL.createObjectURL(data));
     } catch (error) {
-      alert(error);
+      setImageUrl('');
+      console.error("异常: ", error);
     }
   };
 
@@ -44,7 +45,8 @@ function QrCode() {
       const data = await response.json();
       setText(data.text)
     } catch (error) {
-      alert(error);
+      setText('');
+      console.error("异常: ", error);
     }
   };
 
