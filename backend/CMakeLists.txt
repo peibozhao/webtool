@@ -112,7 +112,7 @@ set(opencv_LIBRARIES opencv_imgproc opencv_objdetect opencv_imgcodecs opencv_cor
 
 # Compile
 file(GLOB_RECURSE BACKEND_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
-set(CMAKE_INSTALL_RPATH ../lib)
+set(CMAKE_INSTALL_RPATH \$ORIGIN/../lib)
 add_executable(backend ${BACKEND_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES})
 target_link_libraries(backend grpc++ gflags ${opencv_LIBRARIES})
 add_dependencies(backend opencv)
@@ -123,6 +123,9 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL Linux)
     COMPONENT Runtime
     RUNTIME_DEPENDENCIES
       POST_EXCLUDE_REGEXES "^/usr/.*" "^/lib/.*"
+  )
+  add_custom_command(TARGET backend POST_BUILD
+    COMMAND find ${opencv_INSTALL_DIR}/lib -maxdepth 1 -type f -exec patchelf --set-rpath '\$\$ORIGIN' {} \\\;
   )
 endif()
 
