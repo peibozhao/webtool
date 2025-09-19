@@ -2,7 +2,7 @@
 export function backendServer() {
   const protocol = window.location.protocol;
   const hostname = import.meta.env.VITE_BACKEND_HOSTNAME || window.location.hostname
-  const port = import.meta.env.VITE_BACKEND_PORT || '';
+  const port = import.meta.env.VITE_BACKEND_PORT || window.location.port;
   return `${protocol}//${hostname}:${port}`;
 }
 

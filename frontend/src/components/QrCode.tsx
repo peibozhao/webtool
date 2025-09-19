@@ -1,11 +1,12 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { backendServer } from '../common/utils';
 
 function QrCode() {
   const [text, setText] = useState("");
-  const [imageUrl, setImageUrl] = useState<null | string>(null);
-  const [imageFile, setImageFile] = useState<null | File>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const backend_server = backendServer();
 
@@ -18,6 +19,9 @@ function QrCode() {
   };
 
   const handleSubmitText = async () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
     try {
       const response = await fetch(`${backend_server}/api/qr_code/generate`, {
         method: "POST",
@@ -37,6 +41,7 @@ function QrCode() {
 
     const formData = new FormData();
     formData.append("image", imageFile);
+    setText('');
     try {
       const response = await fetch(`${backend_server}/api/qr_code/parse`, {
         method: "POST",
@@ -45,7 +50,6 @@ function QrCode() {
       const data = await response.json();
       setText(data.text)
     } catch (error) {
-      setText('');
       console.error("异常: ", error);
     }
   };
@@ -57,7 +61,7 @@ function QrCode() {
         <button onClick={handleSubmitText}>生成</button>
       </div>
       <div>
-        <input type="file" accept="image/*" onChange={handleFileChange} />
+        <input type="file" accept="image/*" onChange={handleFileChange} ref={fileInputRef} />
         <button onClick={handleUploadImage}>解析</button>
       </div>
       {imageUrl && <img src={imageUrl} />}

@@ -1,8 +1,7 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-project(webtool LANGUAGES CXX)
-set(CMAKE_CXX_STANDARD 20)
+project(backend LANGUAGES CXX)
 
 include(ExternalProject)
 include(FetchContent)
@@ -26,20 +25,18 @@ FetchContent_Declare(grpc
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 set(FETCHCONTENT_QUIET OFF)
 
+# gflags
 FetchContent_MakeAvailable(gflags)
-include_directories(${gflags_BINARY_DIR}/include/)
 
+# cpp-httplib
 FetchContent_MakeAvailable(cpp-httplib)
-include_directories(${cpp-httplib_SOURCE_DIR})
 
+# spdlog
 FetchContent_MakeAvailable(spdlog)
-add_definitions(-DSPDLOG_USE_STD_FORMAT)
-include_directories(${spdlog_SOURCE_DIR}/include)
 
 # gRPC
 set(ABSL_ENABLE_INSTALL ON)  # Avoid CMake errors in gRPC
 set(gRPC_BUILD_TESTS OFF)
-set(gRPC_BUILD_CSHARP_EXT OFF)
 set(gRPC_BUILD_GRPC_CSHARP_PLUGIN OFF)
 set(gRPC_BUILD_GRPC_NODE_PLUGIN OFF)
 set(gRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN OFF)
@@ -49,8 +46,27 @@ set(gRPC_BUILD_GRPC_RUBY_PLUGIN OFF)
 FetchContent_MakeAvailable(grpc)
 set(PROTOBUF_PROTOC $<TARGET_FILE:protoc>)
 set(GRPC_CPP_PLUGIN $<TARGET_FILE:grpc_cpp_plugin>)
-include_directories(${protobuf_SOURCE_DIR}/src/)
-include_directories(${absl_SOURCE_DIR})
+
+# opencv
+set(opencv_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-install)
+
+ExternalProject_Add(
+  opencv
+  GIT_REPOSITORY https://github.com/opencv/opencv
+  GIT_TAG 4.12.0
+  UPDATE_DISCONNECTED ON
+  CMAKE_ARGS
+    -DCMAKE_INSTALL_PREFIX=${opencv_INSTALL_DIR}
+    -DBUILD_TESTS=OFF
+    -DBUILD_PERF_TESTS=OFF
+    -DBUILD_opencv_apps=OFF
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-src
+  BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-build
+  STAMP_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-stamp
+  TMP_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-tmp
+  BUILD_ALWAYS OFF
+)
+
 
 # Compile proto file
 set(PROTO_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
@@ -83,38 +99,48 @@ foreach(PROTO_SOURCE_FILE ${PROTO_SOURCE_FILES})
     list(APPEND PROTO_ALL_GENERATE_CPP_FILES ${PROTO_GENERATE_CPP_FILES})
 endforeach(PROTO_SOURCE_FILE)
 
-include_directories(${CMAKE_BINARY_DIR}/gens)  # gRPC proto generated
-include_directories(${PROTO_GENERATE_DIR})
-
-# opencv
-set(opencv_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-install)
-
-ExternalProject_Add(
-  opencv
-  GIT_REPOSITORY https://github.com/opencv/opencv
-  GIT_TAG 4.12.0
-  UPDATE_DISCONNECTED ON
-  CMAKE_ARGS
-    -DCMAKE_INSTALL_PREFIX=${opencv_INSTALL_DIR}
-    -DBUILD_TESTS=OFF
-    -DBUILD_PERF_TESTS=OFF
-    -DBUILD_opencv_apps=OFF
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-src
-  BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-build
-  STAMP_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-stamp
-  TMP_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-tmp
-  BUILD_ALWAYS OFF
-)
-
+# third party
+include_directories(${gflags_BINARY_DIR}/include/)
+include_directories(${cpp-httplib_SOURCE_DIR})
+add_definitions(-DSPDLOG_USE_STD_FORMAT)
+include_directories(${spdlog_SOURCE_DIR}/include)
+include_directories(${protobuf_SOURCE_DIR}/src/)
+include_directories(${absl_SOURCE_DIR})
 include_directories(${opencv_INSTALL_DIR}/include/opencv4)
 link_directories(${opencv_INSTALL_DIR}/lib)
 set(opencv_LIBRARIES opencv_imgproc opencv_objdetect opencv_imgcodecs opencv_core)
 
+# proto generation header
+include_directories(${CMAKE_BINARY_DIR}/gens)  # gRPC proto generated
+include_directories(${PROTO_GENERATE_DIR})
+
+# cuda
+set(CMAKE_CXX_STANDARD 23)
+find_package(CUDAToolkit)
+if (CUDAToolkit_FOUND)
+  option(USE_CUDA "Build with CUDA support" ON)
+  enable_language(CUDA)
+else()
+  message(STATUS "CUDA Toolkit not found, building without CUDA support.")
+  option(USE_CUDA "Build with CUDA support" OFF)
+endif()
+
 # Compile
-file(GLOB_RECURSE BACKEND_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE BACKEND_CPP_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 set(CMAKE_INSTALL_RPATH \$ORIGIN/../lib)
-add_executable(backend ${BACKEND_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES})
-target_link_libraries(backend grpc++ gflags ${opencv_LIBRARIES})
+if (USE_CUDA)
+  file(GLOB_RECURSE BACKEND_CUDA_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cu)
+  add_definitions(-DUSE_CUDA)
+  include_directories(SYSTEM /usr/local/cuda/include)
+  include_directories(SYSTEM /usr/local/tensorrt/include)
+  set(CUDA_LIBRARIES CUDA::cudart CUDA::nvjpeg nvinfer)
+  set(CMAKE_CUDA_ARCHITECTURES 75)
+  add_executable(backend ${BACKEND_CPP_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES} ${BACKEND_CUDA_SOURCES})
+  target_link_libraries(backend grpc++_reflection grpc++ gflags ${opencv_LIBRARIES} ${CUDA_LIBRARIES})
+else()
+  add_executable(backend ${BACKEND_CPP_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES})
+  target_link_libraries(backend grpc++_reflection grpc++ gflags ${opencv_LIBRARIES})
+endif()
 add_dependencies(backend opencv)
 
 # Install
@@ -122,8 +148,13 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL Linux)
   install(TARGETS backend
     COMPONENT Runtime
     RUNTIME_DEPENDENCIES
+      PRE_EXCLUDE_REGEXES "libnv.*"  # TODO
       POST_EXCLUDE_REGEXES "^/usr/.*" "^/lib/.*"
   )
+  install(DIRECTORY ${CMAKE_SOURCE_DIR}/models
+    COMPONENT Runtime
+    DESTINATION .)
+  # TODO
   add_custom_command(TARGET backend POST_BUILD
     COMMAND find ${opencv_INSTALL_DIR}/lib -maxdepth 1 -type f -exec patchelf --set-rpath '\$\$ORIGIN' {} \\\;
   )
