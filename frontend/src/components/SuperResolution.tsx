@@ -27,10 +27,14 @@ function SuperResolution() {
         body: formData,
       });
       const data = await response.blob();
-      const url = URL.createObjectURL(data);
+
+      const file = new File([data], "time4.jpeg", { type: "image/jpeg" });
+      const url = URL.createObjectURL(file);
+
+      // const url = URL.createObjectURL(data);
       setGenImageUrl(url);
     } catch (error) {
-      alert(error);
+      console.error("异常: ", error);
     }
   };
 
