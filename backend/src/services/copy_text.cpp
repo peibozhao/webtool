@@ -23,7 +23,7 @@ CopyText::CopyText() {
       CREATE TRIGGER IF NOT EXISTS delete_expired
       BEFORE INSERT ON copy
       BEGIN
-        DELETE FROM copy WHERE timestamp <= strftime('%s', 'now') - 10;
+        DELETE FROM copy WHERE timestamp <= strftime('%s', 'now') - 86400;
       END;)";
   SQLITE_ASSERT(
       sqlite3_exec(sqlite_handle_, trigger_sql, nullptr, nullptr, nullptr));
