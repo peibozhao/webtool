@@ -3,7 +3,7 @@
 #include "gflags/gflags.h"
 #include "grpcpp/grpcpp.h"
 #include "httplib.h"
-#include "log.h"
+#include "utils/log.h"
 #include "qr_code.grpc.pb.h"
 #include "spdlog/spdlog.h"
 #include "src/proto/grpc/reflection/v1/reflection.grpc.pb.h"

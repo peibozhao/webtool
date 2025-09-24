@@ -1,8 +1,9 @@
 #ifdef USE_CUDA
 
 #include "super_resolution.h"
-#include "../utils/cuda_utils.h"
 #include "spdlog/spdlog.h"
+#include "utils/cuda_utils.h"
+#include "utils/log.h"
 #include <NvInfer.h>
 #include <NvInferRuntime.h>
 #include <cuda_runtime.h>
@@ -39,7 +40,7 @@ class Logger : public nvinfer1::ILogger {
 } gLogger;
 
 SuperResolution::SuperResolution() {
-  assert(cudaStreamCreate(&stream_) == cudaSuccess);
+  CUDA_ASSERT(cudaStreamCreate(&stream_));
 
   // Load engine file
   std::filesystem::path fpath("../models/realesrgan-x4.engine");
@@ -49,13 +50,13 @@ SuperResolution::SuperResolution() {
   std::string fcontent(fsize, '.');
   ifs.read(fcontent.data(), fcontent.size());
   nvinfer1::IRuntime *runtime = nvinfer1::createInferRuntime(gLogger);
-  assert(runtime != nullptr);
+  ASSERT(runtime != nullptr);
   engine_ = runtime->deserializeCudaEngine(fcontent.data(), fcontent.size());
-  assert(engine_ != nullptr);
+  ASSERT(engine_ != nullptr);
   infer_context_ = engine_->createExecutionContext();
-  assert(infer_context_ != nullptr);
+  ASSERT(infer_context_ != nullptr);
 
-  assert(nvjpegCreateSimple(&nvjpeg_handle_) == NVJPEG_STATUS_SUCCESS);
+  NVJPEG_ASSERT(nvjpegCreateSimple(&nvjpeg_handle_));
   delete runtime;
 }
 
@@ -65,8 +66,7 @@ grpc::Status SuperResolution::Times4(grpc::ServerContext *context,
   auto start_time = std::chrono::system_clock::now();
 
   nvjpegJpegState_t jpeg_state;
-  assert(nvjpegJpegStateCreate(nvjpeg_handle_, &jpeg_state) ==
-         NVJPEG_STATUS_SUCCESS);
+  NVJPEG_ASSERT(nvjpegJpegStateCreate(nvjpeg_handle_, &jpeg_state));
 
   int components;
   nvjpegChromaSubsampling_t subsample;
@@ -79,7 +79,8 @@ grpc::Status SuperResolution::Times4(grpc::ServerContext *context,
   SPDLOG_INFO("Input image width {} height {}", width, height);
 
   uint8_t *nvjpeg_image_buffer;
-  assert(cudaMallocAsync(&nvjpeg_image_buffer, width * height * 3, stream_) == cudaSuccess);
+  CUDA_ASSERT(
+      cudaMallocAsync(&nvjpeg_image_buffer, width * height * 3, stream_));
   nvjpegImage_t nvjpeg_image;
   nvjpeg_image.pitch[0] = width;
   nvjpeg_image.channel[0] = nvjpeg_image_buffer;
@@ -89,20 +90,20 @@ grpc::Status SuperResolution::Times4(grpc::ServerContext *context,
   nvjpeg_image.channel[2] = nvjpeg_image_buffer + width * height * 2;
 
   NVJPEG_CHECK(nvjpegDecode(
-      nvjpeg_handle_, jpeg_state, (const unsigned char *)request->image().data(),
-      request->image().size(), nvjpegOutputFormat_t::NVJPEG_OUTPUT_RGB,
-      &nvjpeg_image, stream_));
+      nvjpeg_handle_, jpeg_state,
+      (const unsigned char *)request->image().data(), request->image().size(),
+      nvjpegOutputFormat_t::NVJPEG_OUTPUT_RGB, &nvjpeg_image, stream_));
 
   nvinfer1::Dims4 input_dims{1, 3, height, width};
   int input_size =
       std::accumulate(input_dims.d, input_dims.d + input_dims.nbDims, 4,
                       std::multiplies<int64_t>{});
   SPDLOG_INFO("Engine input memory {}", input_size);
-  assert(infer_context_->setInputShape("input", input_dims));
-  assert(infer_context_->allInputDimensionsSpecified());
+  ASSERT(infer_context_->setInputShape("input", input_dims));
+  ASSERT(infer_context_->allInputDimensionsSpecified());
   float *input_dev_ptr;
-  assert(cudaMallocAsync(&input_dev_ptr, input_size, stream_) == cudaSuccess);
-  assert(infer_context_->setInputTensorAddress("input", input_dev_ptr));
+  CUDA_ASSERT(cudaMallocAsync(&input_dev_ptr, input_size, stream_));
+  ASSERT(infer_context_->setInputTensorAddress("input", input_dev_ptr));
 
   launchConvertUint8ToFloat(nvjpeg_image_buffer, width * height * 3,
                             input_dev_ptr, stream_);
@@ -113,30 +114,28 @@ grpc::Status SuperResolution::Times4(grpc::ServerContext *context,
   int output_size =
       std::accumulate(output_dims.d, output_dims.d + output_dims.nbDims, 4,
                       std::multiplies<int64_t>{});
-  assert(cudaMallocAsync(&output_dev_ptr, output_size, stream_) == cudaSuccess);
-  assert(infer_context_->setOutputTensorAddress("output", output_dev_ptr));
+  CUDA_ASSERT(cudaMallocAsync(&output_dev_ptr, output_size, stream_));
+  ASSERT(infer_context_->setOutputTensorAddress("output", output_dev_ptr));
 
-  assert(infer_context_->enqueueV3(stream_));
+  ASSERT(infer_context_->enqueueV3(stream_));
 
   uint8_t *output_image_dev_ptr;
-  assert(cudaMallocAsync(&output_image_dev_ptr,
-                         output_width * output_height * 3,
-                         stream_) == cudaSuccess);
+  CUDA_ASSERT(cudaMallocAsync(&output_image_dev_ptr,
+                              output_width * output_height * 3, stream_));
 
   launchConvertFloatToUint8(output_dev_ptr, output_width * output_height * 3,
                             output_image_dev_ptr, stream_);
 
   nvjpegEncoderState_t nvjpeg_encoder_state;
-  assert(nvjpegEncoderStateCreate(nvjpeg_handle_, &nvjpeg_encoder_state, stream_) ==
-         NVJPEG_STATUS_SUCCESS);
+  NVJPEG_ASSERT(
+      nvjpegEncoderStateCreate(nvjpeg_handle_, &nvjpeg_encoder_state, stream_));
 
   nvjpegEncoderParams_t encoder_params;
-  assert(nvjpegEncoderParamsCreate(nvjpeg_handle_, &encoder_params, stream_) ==
-         NVJPEG_STATUS_SUCCESS);
-  assert(nvjpegEncoderParamsSetQuality(encoder_params, 80, stream_) ==
-         NVJPEG_STATUS_SUCCESS);
-  assert(nvjpegEncoderParamsSetSamplingFactors(
-             encoder_params, NVJPEG_CSS_420, stream_) == NVJPEG_STATUS_SUCCESS);
+  NVJPEG_ASSERT(
+      nvjpegEncoderParamsCreate(nvjpeg_handle_, &encoder_params, stream_));
+  NVJPEG_ASSERT(nvjpegEncoderParamsSetQuality(encoder_params, 80, stream_));
+  NVJPEG_ASSERT(nvjpegEncoderParamsSetSamplingFactors(encoder_params,
+                                                      NVJPEG_CSS_420, stream_));
 
   nvjpegImage_t encode_image;
   memset(&encode_image, 0, sizeof(encode_image));
@@ -145,22 +144,22 @@ grpc::Status SuperResolution::Times4(grpc::ServerContext *context,
   encode_image.pitch[1] = output_width;
   encode_image.channel[1] = output_image_dev_ptr + output_height * output_width;
   encode_image.pitch[2] = output_width;
-  encode_image.channel[2] = output_image_dev_ptr + output_height * output_width * 2;
+  encode_image.channel[2] =
+      output_image_dev_ptr + output_height * output_width * 2;
 
-  assert(nvjpegEncodeImage(nvjpeg_handle_, nvjpeg_encoder_state, encoder_params,
-                           &encode_image, NVJPEG_INPUT_RGB, output_width,
-                           output_height, stream_) == NVJPEG_STATUS_SUCCESS);
+  NVJPEG_ASSERT(nvjpegEncodeImage(
+      nvjpeg_handle_, nvjpeg_encoder_state, encoder_params, &encode_image,
+      NVJPEG_INPUT_RGB, output_width, output_height, stream_));
 
   size_t encode_jpeg_size;
-  assert(nvjpegEncodeRetrieveBitstream(nvjpeg_handle_, nvjpeg_encoder_state,
-                                       NULL, &encode_jpeg_size,
-                                       stream_) == NVJPEG_STATUS_SUCCESS);
+  NVJPEG_ASSERT(nvjpegEncodeRetrieveBitstream(
+      nvjpeg_handle_, nvjpeg_encoder_state, NULL, &encode_jpeg_size, stream_));
   SPDLOG_INFO("Encode image size {}", encode_jpeg_size);
   response->mutable_image()->resize(encode_jpeg_size);
-  assert(nvjpegEncodeRetrieveBitstream(
-             nvjpeg_handle_, nvjpeg_encoder_state,
-             (unsigned char *)response->mutable_image()->data(),
-             &encode_jpeg_size, stream_) == NVJPEG_STATUS_SUCCESS);
+  NVJPEG_ASSERT(nvjpegEncodeRetrieveBitstream(
+      nvjpeg_handle_, nvjpeg_encoder_state,
+      (unsigned char *)response->mutable_image()->data(), &encode_jpeg_size,
+      stream_));
 
   cudaStreamSynchronize(stream_);
   CUDA_CHECK(cudaGetLastError());

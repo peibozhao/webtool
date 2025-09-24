@@ -1,8 +1,46 @@
 #pragma once
 
-#include <unordered_map>
-#include <format>
 #include "httplib.h"
+#include <format>
+#include <unordered_map>
+
+#define ASSERT(expression)                                                     \
+  {                                                                            \
+    bool status = expression;                                                  \
+    if (!status) {                                                             \
+      SPDLOG_ERROR("Assert {} failed", #expression);                           \
+      abort();                                                                 \
+    }                                                                          \
+  }
+
+#define CUDA_ASSERT(expression)                                                \
+  {                                                                            \
+    cudaError status = expression;                                             \
+    if (status != cudaSuccess) {                                               \
+      SPDLOG_ERROR("cuda function return failed, status is {}", int(status));  \
+      abort();                                                                 \
+    }                                                                          \
+  }
+
+#define NVJPEG_ASSERT(expression)                                              \
+  {                                                                            \
+    nvjpegStatus_t status = expression;                                        \
+    if (status != NVJPEG_STATUS_SUCCESS) {                                     \
+      SPDLOG_ERROR("nvjpeg function return failed, status is {}",              \
+                   int(status));                                               \
+      abort();                                                                 \
+    }                                                                          \
+  }
+
+#define SQLITE_ASSERT(expression)                                              \
+  {                                                                            \
+    int status = expression;                                                   \
+    if (status != SQLITE_OK) {                                                 \
+      SPDLOG_ERROR("sqlite function return failed, status is {}",              \
+                   int(status));                                               \
+      abort();                                                                 \
+    }                                                                          \
+  }
 
 template <>
 struct std::formatter<std::unordered_map<std::string, std::string>> {
