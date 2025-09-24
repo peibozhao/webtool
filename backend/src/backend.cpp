@@ -37,6 +37,10 @@ int main(int argc, char *argv[]) {
     }).detach();
   }
 
+  if (grpc_server_ptr == nullptr && http_server_ptr == nullptr) {
+    SPDLOG_ERROR("Http server and grpc server is all disabled, exit");
+    return 1;
+  }
   SPDLOG_INFO("Block for server");
   std::this_thread::sleep_for(std::chrono::years(1));
   return 0;

@@ -33,7 +33,8 @@ std::unique_ptr<grpc::Server> CreateGrpcServer() {
       server_builder.RegisterService(super_resolution);
 #else
       SPDLOG_ERROR("Service {} need cuda, but current runtime environment "
-                   "don't support", service_name);
+                   "don't support",
+                   service_name);
       abort();
 #endif
     } else if (service_name == "qr_code") {

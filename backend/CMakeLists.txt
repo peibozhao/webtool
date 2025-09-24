@@ -22,6 +22,14 @@ FetchContent_Declare(grpc
   GIT_REPOSITORY https://github.com/grpc/grpc
   GIT_TAG v1.74.1)
 
+FetchContent_Declare(opencv
+  GIT_REPOSITORY https://github.com/opencv/opencv
+  GIT_TAG 4.12.0)
+
+FetchContent_Declare(sqlite
+  GIT_REPOSITORY https://github.com/sqlite/sqlite
+  GIT_TAG version-3.42.1)
+
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 set(FETCHCONTENT_QUIET OFF)
 
@@ -49,24 +57,32 @@ set(GRPC_CPP_PLUGIN $<TARGET_FILE:grpc_cpp_plugin>)
 
 # opencv
 set(opencv_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-install)
-
+FetchContent_Populate(opencv)
 ExternalProject_Add(
   opencv
-  GIT_REPOSITORY https://github.com/opencv/opencv
-  GIT_TAG 4.12.0
   UPDATE_DISCONNECTED ON
   CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX=${opencv_INSTALL_DIR}
     -DBUILD_TESTS=OFF
     -DBUILD_PERF_TESTS=OFF
     -DBUILD_opencv_apps=OFF
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-src
-  BINARY_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-build
-  STAMP_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-stamp
-  TMP_DIR ${CMAKE_BINARY_DIR}/_deps/opencv-tmp
+  SOURCE_DIR ${opencv_SOURCE_DIR}
+  BINARY_DIR ${opencv_BINARY_DIR}
   BUILD_ALWAYS OFF
 )
 
+# sqlite
+set(sqlite_INSTALL_DIR ${CMAKE_BINARY_DIR}/_deps/sqlite-install)
+FetchContent_Populate(sqlite)
+ExternalProject_Add(
+  sqlite
+  UPDATE_DISCONNECTED ON
+  CONFIGURE_COMMAND ${sqlite_SOURCE_DIR}/configure --prefix=${sqlite_INSTALL_DIR} --disable-shared --enable-static
+  SOURCE_DIR ${sqlite_SOURCE_DIR}
+  BINARY_DIR ${sqlite_BINARY_DIR}
+  BUILD_COMMAND make
+  BUILD_ALWAYS OFF
+)
 
 # Compile proto file
 set(PROTO_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
@@ -107,7 +123,9 @@ include_directories(${spdlog_SOURCE_DIR}/include)
 include_directories(${protobuf_SOURCE_DIR}/src/)
 include_directories(${absl_SOURCE_DIR})
 include_directories(${opencv_INSTALL_DIR}/include/opencv4)
+include_directories(${sqlite_INSTALL_DIR}/include)
 link_directories(${opencv_INSTALL_DIR}/lib)
+link_directories(${sqlite_INSTALL_DIR}/lib)
 set(opencv_LIBRARIES opencv_imgproc opencv_objdetect opencv_imgcodecs opencv_core)
 
 # proto generation header
@@ -119,6 +137,7 @@ set(CMAKE_CXX_STANDARD 23)
 find_package(CUDAToolkit)
 if (CUDAToolkit_FOUND)
   option(USE_CUDA "Build with CUDA support" ON)
+  set(CMAKE_CUDA_ARCHITECTURES 75)
   enable_language(CUDA)
 else()
   message(STATUS "CUDA Toolkit not found, building without CUDA support.")
@@ -134,12 +153,11 @@ if (USE_CUDA)
   include_directories(SYSTEM /usr/local/cuda/include)
   include_directories(SYSTEM /usr/local/tensorrt/include)
   set(CUDA_LIBRARIES CUDA::cudart CUDA::nvjpeg nvinfer)
-  set(CMAKE_CUDA_ARCHITECTURES 75)
   add_executable(backend ${BACKEND_CPP_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES} ${BACKEND_CUDA_SOURCES})
-  target_link_libraries(backend grpc++_reflection grpc++ gflags ${opencv_LIBRARIES} ${CUDA_LIBRARIES})
+  target_link_libraries(backend grpc++_reflection grpc++ gflags ${opencv_LIBRARIES} sqlite3 ${CUDA_LIBRARIES})
 else()
   add_executable(backend ${BACKEND_CPP_SOURCES} ${PROTO_ALL_GENERATE_CPP_FILES})
-  target_link_libraries(backend grpc++_reflection grpc++ gflags ${opencv_LIBRARIES})
+  target_link_libraries(backend grpc++_reflection grpc++ gflags ${opencv_LIBRARIES} sqlite3)
 endif()
 add_dependencies(backend opencv)
 

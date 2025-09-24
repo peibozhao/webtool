@@ -10,7 +10,7 @@
 #include "super_resolution_service.grpc.pb.h"
 #include <ranges>
 
-DEFINE_int32(http_port, 8080, "Port for service");
+DEFINE_int32(http_port, 0, "Port for service");
 DEFINE_string(grpc_servers, "127.0.0.1:50051", "gRPC servers address");
 
 std::shared_ptr<grpc::Channel>
