@@ -28,8 +28,10 @@ CopyText::CopyText() {
   SQLITE_ASSERT(
       sqlite3_exec(sqlite_handle_, trigger_sql, nullptr, nullptr, nullptr));
 
-  const char *insert_sql =
-      R"(INSERT INTO copy (key, value) VALUES (lower(hex(randomblob(2))), ?) RETURNING key;)";
+  const char *insert_sql = R"(
+      INSERT INTO copy (key, value)
+      VALUES (lower(hex(randomblob(1))), ?)
+      RETURNING key;)";
   SQLITE_ASSERT(sqlite3_prepare_v2(sqlite_handle_, insert_sql, -1,
                                    &sqlite_insert_statement_, nullptr));
 
