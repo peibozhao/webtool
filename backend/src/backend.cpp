@@ -3,6 +3,7 @@
 #include "grpcpp/grpcpp.h"
 #include "httplib.h"
 #include "services/qr_code.h"
+#include "spdlog/sinks/rotating_file_sink.h"
 #include "spdlog/spdlog.h"
 
 std::unique_ptr<grpc::Server> CreateGrpcServer();
@@ -13,6 +14,11 @@ DECLARE_int32(http_port);
 
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, false);
+
+  auto logger =
+      spdlog::rotating_logger_mt("backend", "backend.log", 1024 * 1024 * 5, 10);
+  spdlog::set_default_logger(logger);
+
   std::unique_ptr<grpc::Server> grpc_server_ptr;
   if (!FLAGS_grpc_services.empty()) {
     grpc_server_ptr = CreateGrpcServer();
