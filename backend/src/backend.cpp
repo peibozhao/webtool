@@ -13,6 +13,8 @@ DECLARE_string(grpc_services);
 DECLARE_int32(http_port);
 
 int main(int argc, char *argv[]) {
+  spdlog::flush_every(std::chrono::seconds(1));
+
   gflags::ParseCommandLineFlags(&argc, &argv, false);
 
   auto logger =

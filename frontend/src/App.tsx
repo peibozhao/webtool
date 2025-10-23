@@ -39,7 +39,7 @@ const router = [
     element: <SuperResolution />,
     text: '超分辨率',
     description: '',
-    visible: true,
+    visible: false,
   }, {
     path: '/qr_code',
     element: <QrCode />,
