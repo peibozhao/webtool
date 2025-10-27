@@ -4,6 +4,7 @@
 #include "httplib.h"
 #include "services/qr_code.h"
 #include "spdlog/sinks/rotating_file_sink.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
 
 std::unique_ptr<grpc::Server> CreateGrpcServer();
@@ -12,13 +13,24 @@ std::unique_ptr<httplib::Server> CreateHttpServer();
 DECLARE_string(grpc_services);
 DECLARE_int32(http_port);
 
+DEFINE_bool(debug, false, "Enable debug mode");
+
 int main(int argc, char *argv[]) {
   spdlog::flush_every(std::chrono::seconds(1));
 
   gflags::ParseCommandLineFlags(&argc, &argv, false);
 
-  auto logger =
-      spdlog::rotating_logger_mt("backend", "backend.log", 1024 * 1024 * 5, 10);
+  std::shared_ptr<spdlog::sinks::sink> file_sink =
+      std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+          "backend.log", 1024 * 1024 * 5, 10);
+  std::vector<std::shared_ptr<spdlog::sinks::sink>> sinks{file_sink};
+  if (FLAGS_debug) {
+    std::shared_ptr<spdlog::sinks::sink> console_sink =
+        std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+  }
+  std::shared_ptr<spdlog::logger> logger =
+      std::make_shared<spdlog::logger>("backend", sinks.begin(), sinks.end());
   spdlog::set_default_logger(logger);
 
   std::unique_ptr<grpc::Server> grpc_server_ptr;

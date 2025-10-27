@@ -10,8 +10,10 @@
 #include "super_resolution_service.grpc.pb.h"
 #include <ranges>
 
+DECLARE_int32(grpc_port);
+
 DEFINE_int32(http_port, 0, "Port for service");
-DEFINE_string(grpc_servers, "127.0.0.1:50051", "gRPC servers address");
+DEFINE_string(grpc_servers, "", "gRPC servers address");
 
 std::shared_ptr<grpc::Channel>
 GrpcServiceDiscovery(const std::vector<std::string> &addrs,
@@ -50,8 +52,11 @@ GrpcServiceDiscovery(const std::vector<std::string> &addrs,
 
 std::unique_ptr<httplib::Server> CreateHttpServer() {
   SPDLOG_INFO("HTTP server starting");
-  auto servers_sview = FLAGS_grpc_servers | std::views::split(',');
   std::vector<std::string> addrs;
+  if (FLAGS_grpc_port > 0) {
+    addrs.push_back(std::format("127.0.0.1:{}", FLAGS_grpc_port));
+  }
+  auto servers_sview = FLAGS_grpc_servers | std::views::split(',');
   std::for_each(servers_sview.begin(), servers_sview.end(),
                 [&addrs](auto &&server) {
                   addrs.push_back(std::string(server.begin(), server.end()));
