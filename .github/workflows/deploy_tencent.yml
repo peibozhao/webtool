@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: tencent
-      url: https://${{ vars.SERVER_HOSTNAME }}/webtool
+      url: https://${{ vars.SERVER_HOSTNAME }}/
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
