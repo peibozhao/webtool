@@ -7,7 +7,7 @@ import Colors from './components/Colors.tsx';
 import Timestamp from './components/Timestamp.tsx';
 import SuperResolution from './components/SuperResolution.tsx';
 import QrCode from './components/QrCode.tsx';
-import Test from './components/Test.tsx';
+import AudioRecorder from './components/AudioRecorder.tsx';
 
 const router = [
   {
@@ -47,11 +47,11 @@ const router = [
     description: '',
     visible: true,
   }, {
-    path: '/test',
-    element: <Test />,
-    text: '测试页面',
+    path: '/audio_recorder',
+    element: <AudioRecorder />,
+    text: '录音',
     description: '',
-    visible: false,
+    visible: true,
   }
 ]
 
