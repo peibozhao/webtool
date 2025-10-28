@@ -47,5 +47,5 @@ jobs:
       - name: Deploy frontend
         working-directory: ./frontend/
         run: |
-          rsync -avz --delete ./dist/ ${{ secrets.SERVER_USER }}@${{ vars.SERVER_HOSTNAME }}:frontend/webtool/
+          rsync -avz --delete ./dist/ ${{ secrets.SERVER_USER }}@${{ vars.SERVER_HOSTNAME }}:frontend/
 
