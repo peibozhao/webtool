@@ -12,45 +12,48 @@ import AudioRecorder from './components/AudioRecorder.tsx';
 const router = [
   {
     path: '/',
-    element: <Home />,
+    get element() {
+      return (<Home items={router.filter(({ visible }) => visible).map(({ text, description }) => ({ title: text, description: description }
+      ))} />)
+    },
     text: '主页',
-    description: '',
+    description: '各标签页的功能说明',
     visible: true,
   }, {
     path: '/timestamp',
     element: <Timestamp />,
     text: '时间戳',
-    description: '',
+    description: 'unix时间戳跟日期互相转换',
     visible: true,
   }, {
     path: '/colors',
     element: <Colors />,
     text: '颜色表',
-    description: '',
+    description: '点选颜色, 显示对应的RGB数值',
     visible: true,
   }, {
     path: '/copy',
     element: <Copy />,
     text: '拷贝',
-    description: '',
+    description: '把长文本保存成便于记忆的短文本, 并可以通过短文本提取长文本(超时时间1天)',
     visible: true,
   }, {
     path: '/super_resolution',
     element: <SuperResolution />,
     text: '超分辨率',
-    description: '',
+    description: '图像超分辨率(4x)转换',
     visible: false,
   }, {
     path: '/qr_code',
     element: <QrCode />,
     text: '二维码',
-    description: '',
+    description: '二维码图像的生成和解析',
     visible: true,
   }, {
     path: '/audio_recorder',
     element: <AudioRecorder />,
     text: '录音',
-    description: '',
+    description: '录音',
     visible: true,
   }
 ]
