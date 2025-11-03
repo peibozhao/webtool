@@ -114,9 +114,10 @@ grpc::Status MapPinning::Download(grpc::ServerContext *context,
       (const char *)sqlite3_column_text(sqlite_search_statement_, 0);
 
   SPDLOG_INFO("Get map marker set {} text '{}'", request->name(), text);
-
-  absl::Status absl_status =
-      google::protobuf::util::JsonStringToMessage(text, response);
+  google::protobuf::json::ParseOptions parse_options;
+  parse_options.ignore_unknown_fields = true;
+  absl::Status absl_status = google::protobuf::util::JsonStringToMessage(
+      text, response, parse_options);
 
   if (!absl_status.ok()) {
     SPDLOG_ERROR("Parse json to protobuf failed. code={}, text='{}'",
