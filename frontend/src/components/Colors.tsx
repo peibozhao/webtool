@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { useTitle } from '../hooks/useTitle';
 import s from './Colors.module.css';

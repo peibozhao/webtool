@@ -1,4 +1,3 @@
-
 #include "copy_text.h"
 #include "spdlog/spdlog.h"
 #include "sqlite3.h"
@@ -56,11 +55,13 @@ grpc::Status CopyText::Submit(grpc::ServerContext *context,
   }
   std::string code =
       (const char *)sqlite3_column_text(sqlite_insert_statement_, 0);
-  SPDLOG_INFO("Save text {} with code {}", request->text(), code);
+  SPDLOG_INFO("Save text '{}' with code {}", request->text(), code);
 
   response->set_code(code);
   code_text_map_[response->code()] = request->text();
   current_code_ += 1;
+
+  SQLITE_ASSERT(sqlite3_reset(sqlite_insert_statement_));
   return grpc::Status::OK;
 }
 
@@ -79,12 +80,14 @@ grpc::Status CopyText::Retrieve(grpc::ServerContext *context,
   } else if (step_ret != SQLITE_ROW) {
     return grpc::Status(
         grpc::StatusCode::INTERNAL,
-        std::format("Sqlite search failed, text {}", request->code()));
+        std::format("Sqlite search failed. code={}", request->code()));
   }
 
   std::string text =
       (const char *)sqlite3_column_text(sqlite_search_statement_, 0);
   response->set_text(text);
-  SPDLOG_INFO("Return text {} with code {}", response->text(), request->code());
+  SPDLOG_INFO("Return text '{}' with code {}", response->text(),
+              request->code());
+  SQLITE_ASSERT(sqlite3_reset(sqlite_search_statement_));
   return grpc::Status::OK;
 }

@@ -1,4 +1,3 @@
-
 syntax = "proto3";
 
 message SubmitRequest {
@@ -21,4 +20,3 @@ service CopyService {
   rpc Submit (SubmitRequest) returns (SubmitResponse) {}
   rpc Retrieve (RetrieveRequest) returns (RetrieveResponse) {}
 }
-

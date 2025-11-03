@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+message Marker {
+  float lng = 1;
+  float lat = 2;
+  string text = 3;
+}
+
+message DownloadRequest {
+  string name = 1;
+}
+
+message DownloadResponse {
+  string name = 1;
+  repeated Marker markers = 2;
+}
+
+message UploadRequest {
+  string name = 1;
+  string password = 2;
+  repeated Marker markers = 3;
+}
+
+message UploadResponse {
+}
+
+service MapPinningService {
+  rpc Download (DownloadRequest) returns (DownloadResponse) {}
+  rpc Upload (UploadRequest) returns (UploadResponse) {}
+}

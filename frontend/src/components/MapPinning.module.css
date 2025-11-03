@@ -1,0 +1,33 @@
+.root {
+  height: 100%;
+  width: 100%;
+}
+
+.infoContainer {
+  display: flex;
+  position: "absolute";
+  top: 10;
+  left: 10;
+  background: "rgba(255,255,255,0.9)";
+  padding: "8px 12px";
+}
+
+.mapContainer {
+  height: 100%;
+  width: 100%;
+}
+
+.pointInfo {
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  color: inherit;
+  font-size: inherit;
+  margin: 10px;
+  padding: 0 8px;
+  height: 40px;
+  width: 400px;
+}
+
+.pointInfo:focus {
+  box-shadow: rgba(66, 153, 225, 0.6) 0px 0px 0px 3px;
+}

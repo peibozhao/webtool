@@ -1,4 +1,3 @@
-
 import s from "./Home.module.css"
 
 interface HomeProps {
@@ -8,14 +7,16 @@ interface HomeProps {
 function Home({ items }: HomeProps) {
   return <div className={s.root}>
     <table className={s.descriptionTable}>
-      {
-        items.map(({ title, description }) => (
-          <tr className={s.row}>
-            <td className={s.titleCol}> {title} </td>
-            <td className={s.descriptionCol}> {description} </td>
-          </tr>
-        ))
-      }
+      <tbody>
+        {
+          items.map(({ title, description }) => (
+            <tr key={title} className={s.row}>
+              <td className={s.titleCol}> {title} </td>
+              <td className={s.descriptionCol}> {description} </td>
+            </tr>
+          ))
+        }
+      </tbody>
     </table>
   </div>
 }

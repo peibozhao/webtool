@@ -1,13 +1,15 @@
-
 #include "copy_service.grpc.pb.h"
 #include "gflags/gflags.h"
 #include "grpcpp/grpcpp.h"
 #include "httplib.h"
-#include "utils/log.h"
+#include "map_pinning.grpc.pb.h"
 #include "qr_code.grpc.pb.h"
 #include "spdlog/spdlog.h"
 #include "src/proto/grpc/reflection/v1/reflection.grpc.pb.h"
 #include "super_resolution_service.grpc.pb.h"
+#include "utils/adapter.h"
+#include "utils/log.h"
+#include "utils/type_traits.h"
 #include <ranges>
 
 DECLARE_int32(grpc_port);
@@ -16,7 +18,7 @@ DEFINE_int32(http_port, 0, "Port for service");
 DEFINE_string(grpc_servers, "", "gRPC servers address");
 
 std::shared_ptr<grpc::Channel>
-GrpcServiceDiscovery(const std::vector<std::string> &addrs,
+GRPCServiceDiscovery(const std::vector<std::string> &addrs,
                      const std::string &cmd) {
   for (const std::string &addr : addrs) {
     std::unique_ptr<grpc::reflection::v1::ServerReflection::Stub>
@@ -28,7 +30,7 @@ GrpcServiceDiscovery(const std::vector<std::string> &addrs,
     request.set_list_services("*");
     if (!server_info_rw_ptr->Write(request) ||
         !server_info_rw_ptr->WritesDone()) {
-      SPDLOG_WARN("Grpc server {} is stopped", addr);
+      SPDLOG_WARN("GRPC server {} is stopped", addr);
       continue;
     }
     grpc::reflection::v1::ServerReflectionResponse response;
@@ -47,10 +49,69 @@ GrpcServiceDiscovery(const std::vector<std::string> &addrs,
       return grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
     }
   }
-  throw std::runtime_error("Grpc server is invalid");
+  throw std::runtime_error("GRPC server is invalid");
 }
 
-std::unique_ptr<httplib::Server> CreateHttpServer() {
+std::vector<std::string> GetGRPCServerAddresses() {
+  static std::once_flag run_once;
+  static std::vector<std::string> grpc_server_addrs;
+  std::call_once(run_once, [] {
+    if (FLAGS_grpc_port > 0) {
+      grpc_server_addrs.push_back(std::format("127.0.0.1:{}", FLAGS_grpc_port));
+    }
+    auto servers_sview = FLAGS_grpc_servers | std::views::split(',');
+    std::for_each(servers_sview.begin(), servers_sview.end(),
+                  [](auto &&server) {
+                    grpc_server_addrs.push_back(
+                        std::string(server.begin(), server.end()));
+                  });
+  });
+  return grpc_server_addrs;
+}
+
+template <typename ServiceType, auto Method>
+void HTTPHandler(const httplib::Request &req, httplib::Response &res) {
+  std::vector<std::string> grpc_server_addrs = GetGRPCServerAddresses();
+  std::shared_ptr<grpc::Channel> channel =
+      GRPCServiceDiscovery(grpc_server_addrs, ServiceType::service_full_name());
+
+  typename GRPCTraits<decltype(Method)>::Request grpc_req;
+  ConvertHTTPRequestToProto(req, &grpc_req);
+
+  std::unique_ptr<typename ServiceType::Stub> stub =
+      ServiceType::NewStub(channel);
+  grpc::ClientContext context;
+  typename GRPCTraits<decltype(Method)>::Response grpc_res;
+  grpc::Status status = (stub.get()->*Method)(&context, grpc_req, &grpc_res);
+
+  if (!status.ok()) {
+    ConvertGRPCStatusToHTTPCode(status, res);
+    return;
+  }
+  ConvertProtoToHTTPResponse(grpc_res, &res);
+}
+
+template <typename ServiceType, auto Method>
+void RegisterPostHandler(std::unique_ptr<httplib::Server> &server_ptr,
+                         const std::string &uri) {
+  SPDLOG_INFO("Register HTTP POST {} handler", uri);
+  server_ptr->Post(uri,
+                   [&uri](const httplib::Request &req, httplib::Response &res) {
+                     HTTPHandler<ServiceType, Method>(req, res);
+                   });
+}
+
+template <typename ServiceType, auto Method>
+void RegisterGetHandler(std::unique_ptr<httplib::Server> &server_ptr,
+                        const std::string &uri) {
+  SPDLOG_INFO("Register HTTP GET {} handler", uri);
+  server_ptr->Get(uri,
+                  [&uri](const httplib::Request &req, httplib::Response &res) {
+                    HTTPHandler<ServiceType, Method>(req, res);
+                  });
+}
+
+std::unique_ptr<httplib::Server> CreateHTTPServer() {
   SPDLOG_INFO("HTTP server starting");
   std::vector<std::string> addrs;
   if (FLAGS_grpc_port > 0) {
@@ -66,11 +127,12 @@ std::unique_ptr<httplib::Server> CreateHttpServer() {
       std::make_unique<httplib::Server>();
   http_server_ptr->set_logger(
       [](const httplib::Request &req, const httplib::Response &res) {
-        SPDLOG_INFO("Receive http request: {}, response {}", req, res);
+        SPDLOG_INFO("Receive HTTP request: {}", req);
+        SPDLOG_INFO("Send HTTP response: {}", res);
       });
   http_server_ptr->set_error_handler(
       [](const httplib::Request &req, httplib::Response &res) {
-        SPDLOG_WARN("Receive invalid http request: {}. response {}", req, res);
+        SPDLOG_WARN("Send HTTP error response: {}, body {}", res, res.body);
       });
   http_server_ptr->set_exception_handler([](const httplib::Request &req,
                                             httplib::Response &res,
@@ -93,104 +155,27 @@ std::unique_ptr<httplib::Server> CreateHttpServer() {
   default_headers.insert({"Access-Control-Allow-Origin", "*"});
   http_server_ptr->set_default_headers(default_headers);
 
-  SPDLOG_INFO("Set copy service handler");
-  http_server_ptr->Post("/api/copy/submit", [addrs](const httplib::Request &req,
-                                                    httplib::Response &res) {
-    std::shared_ptr<grpc::Channel> channel =
-        GrpcServiceDiscovery(addrs, CopyService::service_full_name());
-    std::unique_ptr<CopyService::Stub> stub = CopyService::NewStub(channel);
-    SubmitRequest req_pb;
-    req_pb.set_text(req.get_param_value("text"));
-    grpc::ClientContext context;
-    SubmitResponse res_pb;
-    grpc::Status status = stub->Submit(&context, req_pb, &res_pb);
-    if (!status.ok()) {
-      SPDLOG_WARN("gRPC call Submmit failed. code={}, message={}",
-                  int(status.error_code()), status.error_message());
-      return;
-    }
-    res.set_content(std::format(R"({{"code": "{}"}})", res_pb.code()),
-                    "application/json");
-  });
+#define REGISTER_HTTP_HANDLER(Method, Uri, Service, RPC)                       \
+  Register##Method##Handler<Service, &Service::Stub::RPC>(http_server_ptr, Uri);
 
-  http_server_ptr->Get(
-      "/api/copy/retrieve",
-      [addrs](const httplib::Request &req, httplib::Response &res) {
-        std::shared_ptr<grpc::Channel> channel =
-            GrpcServiceDiscovery(addrs, CopyService::service_full_name());
-        std::unique_ptr<CopyService::Stub> stub = CopyService::NewStub(channel);
-        RetrieveRequest req_pb;
-        req_pb.set_code(req.get_param_value("code"));
-        grpc::ClientContext context;
-        RetrieveResponse res_pb;
-        grpc::Status status = stub->Retrieve(&context, req_pb, &res_pb);
-        if (!status.ok()) {
-          SPDLOG_WARN("gRPC call Retrieve failed. code={}, message={}",
-                      int(status.error_code()), status.error_message());
-          return;
-        }
-        res.set_content(std::format(R"({{"text": "{}"}})", res_pb.text()),
-                        "application/json");
-      });
+  SPDLOG_INFO("Set copy service handler");
+  REGISTER_HTTP_HANDLER(Post, "/api/copy/submit", CopyService, Submit);
+  REGISTER_HTTP_HANDLER(Get, "/api/copy/retrieve", CopyService, Retrieve);
 
   SPDLOG_INFO("Set super resolution service handler");
-  http_server_ptr->Post(
-      "/api/super_resolution",
-      [addrs](const httplib::Request &req, httplib::Response &res) {
-        const httplib::FormData file_form_data = req.form.get_file("image");
-        if (file_form_data.content.empty()) {
-          throw std::invalid_argument("File content is empty");
-        }
-
-        std::shared_ptr<grpc::Channel> channel = GrpcServiceDiscovery(
-            addrs, SuperResolutionService::service_full_name());
-        std::unique_ptr<SuperResolutionService::Stub> stub =
-            SuperResolutionService::NewStub(channel);
-        ImageRequest image_request;
-        image_request.set_image(file_form_data.content);
-        grpc::ClientContext context;
-        ImageResponse res_pb;
-        grpc::Status status = stub->Times4(&context, image_request, &res_pb);
-        res.set_content(res_pb.image(), "image/jpg");
-        SPDLOG_INFO("Response image size {}", res_pb.image().size());
-      });
+  REGISTER_HTTP_HANDLER(Post, "/api/super_resolution", SuperResolutionService,
+                        Times4);
 
   SPDLOG_INFO("Set QR code service handler");
-  http_server_ptr->Post("/api/qr_code/parse", [addrs](
-                                                  const httplib::Request &req,
-                                                  httplib::Response &res) {
-    const httplib::FormData file_form_data = req.form.get_file("image");
-    if (file_form_data.content.empty()) {
-      throw std::invalid_argument("File content is empty");
-    }
+  REGISTER_HTTP_HANDLER(Post, "/api/qr_code/parse", QrCodeService, ParseText);
+  REGISTER_HTTP_HANDLER(Post, "/api/qr_code/generate", QrCodeService,
+                        GenerateImage);
 
-    std::shared_ptr<grpc::Channel> channel =
-        GrpcServiceDiscovery(addrs, QrCodeService::service_full_name());
-    std::unique_ptr<QrCodeService::Stub> stub = QrCodeService::NewStub(channel);
-    grpc::ClientContext context;
-    ParseTextRequest parse_request;
-    ParseTextResponse parse_response;
-    parse_request.set_image(file_form_data.content);
-    grpc::Status grpc_status =
-        stub->ParseText(&context, parse_request, &parse_response);
-    res.set_content(std::format(R"({{"text":"{}"}})", parse_response.text()),
-                    "application/json");
-  });
-  http_server_ptr->Post(
-      "/api/qr_code/generate",
-      [addrs](const httplib::Request &req, httplib::Response &res) {
-        std::shared_ptr<grpc::Channel> channel =
-            GrpcServiceDiscovery(addrs, QrCodeService::service_full_name());
-        std::unique_ptr<QrCodeService::Stub> stub =
-            QrCodeService::NewStub(channel);
-        GenerateImageRequest req_pb;
-        req_pb.set_text(req.get_param_value("text"));
-        grpc::ClientContext context;
-        GenerateImageResponse res_pb;
-        grpc::Status grpc_status =
-            stub->GenerateImage(&context, req_pb, &res_pb);
-        res.set_content(res_pb.image(), "image/jpg");
-      });
+  SPDLOG_INFO("Set map pinning service handler");
+  REGISTER_HTTP_HANDLER(Post, "/api/map_pinning/upload", MapPinningService,
+                        Upload);
+  REGISTER_HTTP_HANDLER(Get, "/api/map_pinning/download", MapPinningService,
+                        Download);
 
   SPDLOG_INFO("Set check healthy service handler");
   http_server_ptr->Get("/api/check_healthy",

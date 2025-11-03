@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useTitle } from '../hooks/useTitle';
 import { backendServer } from '../common/utils';
@@ -21,7 +20,7 @@ function Copy() {
         method: 'POST',
         body: `text=${submitText}`,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-      })
+      });
       const data = await response.json();
       setRetrieveCode(data.code);
       setSubmitButtonText('提交');
@@ -65,4 +64,3 @@ function Copy() {
 }
 
 export default Copy;
-

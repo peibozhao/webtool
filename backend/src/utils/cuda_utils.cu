@@ -1,4 +1,3 @@
-
 #include "cuda_utils.h"
 
 __global__ void convertUint8ToFloat(const uint8_t *in, int size, float *out) {

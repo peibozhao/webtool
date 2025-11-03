@@ -1,4 +1,3 @@
-
 syntax = "proto3";
 
 message GenerateImageRequest {
@@ -21,4 +20,3 @@ service QrCodeService {
   rpc GenerateImage (GenerateImageRequest) returns (GenerateImageResponse) {}
   rpc ParseText (ParseTextRequest) returns (ParseTextResponse) {}
 }
-

@@ -1,4 +1,3 @@
-
 #include "qr_code.grpc.pb.h"
 
 class QrCode : public QrCodeService::Service {

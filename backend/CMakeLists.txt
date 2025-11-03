@@ -1,4 +1,3 @@
-
 cmake_minimum_required(VERSION 3.16)
 
 project(backend LANGUAGES CXX)
@@ -30,6 +29,10 @@ FetchContent_Declare(sqlite
   GIT_REPOSITORY https://github.com/sqlite/sqlite
   GIT_TAG version-3.42.1)
 
+FetchContent_Declare(json
+  GIT_REPOSITORY https://github.com/nlohmann/json
+  GIT_TAG v3.12.0)
+
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 set(FETCHCONTENT_QUIET OFF)
 
@@ -41,6 +44,9 @@ FetchContent_MakeAvailable(cpp-httplib)
 
 # spdlog
 FetchContent_MakeAvailable(spdlog)
+
+# json
+FetchContent_MakeAvailable(json)
 
 # gRPC
 set(ABSL_ENABLE_INSTALL ON)  # Avoid CMake errors in gRPC
@@ -127,6 +133,7 @@ include_directories(${sqlite_INSTALL_DIR}/include)
 link_directories(${opencv_INSTALL_DIR}/lib)
 link_directories(${sqlite_INSTALL_DIR}/lib)
 set(opencv_LIBRARIES opencv_imgproc opencv_objdetect opencv_imgcodecs opencv_core)
+include_directories(${json_SOURCE_DIR}/include)
 
 # proto generation header
 include_directories(${CMAKE_BINARY_DIR}/gens)  # gRPC proto generated
@@ -178,4 +185,3 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL Linux)
     COMMAND find ${opencv_INSTALL_DIR}/lib -maxdepth 1 -type f -exec patchelf --set-rpath '\$\$ORIGIN' {} \\\;
   )
 endif()
-
