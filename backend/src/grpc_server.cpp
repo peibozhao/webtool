@@ -12,17 +12,6 @@
 DEFINE_int32(grpc_port, 50051, "gRPC service port");
 DEFINE_string(grpc_services, "", "Start gRPC service name");
 
-namespace {
-std::map<std::string, grpc::Service *> grpc_name_to_service = {
-    {"copy", new CopyText()},
-#ifdef USE_CUDA
-    {"super_resolution", new SuperResolutionService()},
-#endif
-    {"qr_code", new QrCode()},
-    {"map_pinning", new MapPinning()},
-};
-} // namespace
-
 std::unique_ptr<grpc::Server> CreateGRPCServer() {
   SPDLOG_INFO("gRPC server is starting");
   grpc::reflection::InitProtoReflectionServerBuilderPlugin();
@@ -30,10 +19,20 @@ std::unique_ptr<grpc::Server> CreateGRPCServer() {
   server_builder.AddListeningPort(std::format("0.0.0.0:{}", FLAGS_grpc_port),
                                   grpc::InsecureServerCredentials());
 
+  std::map<std::string, std::function<grpc::Service *()>> grpc_name_to_service =
+      {
+          {"copy", [] { return new CopyText(); }},
+#ifdef USE_CUDA
+          {"super_resolution", [] { return new SuperResolution(); }},
+#endif
+          {"qr_code", [] { return new QrCode(); }},
+          {"map_pinning", [] { return new MapPinning(); }},
+      };
+
   if (FLAGS_grpc_services == "all") {
     for (auto name_to_service : grpc_name_to_service) {
       SPDLOG_INFO("Register GRPC service {}", name_to_service.first);
-      server_builder.RegisterService(name_to_service.second);
+      server_builder.RegisterService(name_to_service.second());
     }
   } else {
     for (const auto &service_range :
@@ -48,7 +47,7 @@ std::unique_ptr<grpc::Server> CreateGRPCServer() {
         return nullptr;
       }
       SPDLOG_INFO("Register GRPC service {}", service_name);
-      server_builder.RegisterService(name_to_service_iter->second);
+      server_builder.RegisterService(name_to_service_iter->second());
     }
   }
   SPDLOG_INFO("Build and start GRPC server");

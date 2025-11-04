@@ -2,11 +2,13 @@
 #include "google/protobuf/util/json_util.h"
 #include "spdlog/spdlog.h"
 #include "utils/log.h"
+#include "utils/utils.h"
 
 MapPinning::MapPinning() {
-  std::string sqlite_db_fname = "webtool.db";
-  SPDLOG_INFO("Open sqlite database file {}", sqlite_db_fname);
-  SQLITE_ASSERT(sqlite3_open(sqlite_db_fname.c_str(), &sqlite_handle_));
+  std::filesystem::path sqlite_db_fpath =
+      GetDataDirectory() / (GetProcessName() + ".db");
+  SPDLOG_INFO("Open sqlite database file {}", sqlite_db_fpath.string());
+  SQLITE_ASSERT(sqlite3_open(sqlite_db_fpath.c_str(), &sqlite_handle_));
 
   const char *create_sql = R"(
       CREATE TABLE IF NOT EXISTS map_pinning (
@@ -19,7 +21,7 @@ MapPinning::MapPinning() {
       sqlite3_exec(sqlite_handle_, create_sql, nullptr, nullptr, nullptr));
 
   const char *insert_sql = R"(
-      INSERT OR REPLACE INTO map_pinning (key, password, value) 
+      INSERT OR REPLACE INTO map_pinning (key, password, value)
       SELECT ?, ?, ?
       WHERE NOT EXISTS (SELECT 1 FROM map_pinning WHERE key = ? AND password <> ?);
       )";

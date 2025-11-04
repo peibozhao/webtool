@@ -2,11 +2,13 @@
 #include "spdlog/spdlog.h"
 #include "sqlite3.h"
 #include "utils/log.h"
+#include "utils/utils.h"
 
 CopyText::CopyText() {
-  std::string sqlite_db_fname = "webtool.db";
-  SPDLOG_INFO("Open sqlite database file {}", sqlite_db_fname);
-  SQLITE_ASSERT(sqlite3_open(sqlite_db_fname.c_str(), &sqlite_handle_));
+  std::filesystem::path sqlite_db_fpath =
+      GetDataDirectory() / (GetProcessName() + ".db");
+  SPDLOG_INFO("Open sqlite database file {}", sqlite_db_fpath.string());
+  SQLITE_ASSERT(sqlite3_open(sqlite_db_fpath.c_str(), &sqlite_handle_));
 
   const char *create_sql = R"(
       CREATE TABLE IF NOT EXISTS copy (

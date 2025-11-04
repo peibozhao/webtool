@@ -4,6 +4,7 @@
 #include "spdlog/spdlog.h"
 #include "utils/cuda_utils.h"
 #include "utils/log.h"
+#include "utils/utils.h"
 #include <NvInfer.h>
 #include <NvInferRuntime.h>
 #include <cuda_runtime.h>
@@ -43,7 +44,8 @@ SuperResolution::SuperResolution() {
   CUDA_ASSERT(cudaStreamCreate(&stream_));
 
   // Load engine file
-  std::filesystem::path fpath("../models/realesrgan-x4.engine");
+  std::filesystem::path fpath =
+      GetModelFileDirectory() / "realesrgan-x4.engine";
   std::ifstream ifs(fpath, std::ios::binary);
   int fsize = std::filesystem::file_size(fpath);
   SPDLOG_INFO("Tensorrt engine file {} size {}", fpath.string(), fsize);

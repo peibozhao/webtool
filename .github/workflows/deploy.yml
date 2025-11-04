@@ -106,7 +106,7 @@ jobs:
       - name: Deploy test environment backend
         run: |
           rsync -avz --delete download/backend/ ${{ secrets.SERVER_USER }}@${{ vars.SERVER_ADDRESS }}:test/backend/
-          ssh ${{ secrets.SERVER_USER }}@${{ vars.SERVER_ADDRESS }} systemctl --user restart backend.service
+          ssh ${{ secrets.SERVER_USER }}@${{ vars.SERVER_ADDRESS }} systemctl --user restart backend_test.service
       - name: Download frontend
         uses: actions/download-artifact@v6
         with:
