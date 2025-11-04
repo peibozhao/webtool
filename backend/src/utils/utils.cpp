@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "gflags/gflags.h"
+#include <format>
 #include <fstream>
 #include <limits.h>
 #include <unistd.h>
@@ -30,6 +31,24 @@ std::filesystem::path GetModelFileDirectory() {
   return exec_file_path.parent_path() / "models";
 }
 
-std::filesystem::path GetLogDirectory() { return FLAGS_logdir; }
+std::filesystem::path GetLogDirectory() {
+  if (!std::filesystem::exists(FLAGS_logdir)) {
+    std::filesystem::create_directories(FLAGS_logdir);
+  }
+  if (!std::filesystem::is_directory(FLAGS_logdir)) {
+    throw std::runtime_error(
+        std::format("Log diretory {} is invalid", FLAGS_logdir));
+  }
+  return FLAGS_logdir;
+}
 
-std::filesystem::path GetDataDirectory() { return FLAGS_datadir; }
+std::filesystem::path GetDataDirectory() {
+  if (!std::filesystem::exists(FLAGS_datadir)) {
+    std::filesystem::create_directories(FLAGS_datadir);
+  }
+  if (!std::filesystem::is_directory(FLAGS_datadir)) {
+    throw std::runtime_error(
+        std::format("Data diretory {} is invalid", FLAGS_datadir));
+  }
+  return FLAGS_datadir;
+}
