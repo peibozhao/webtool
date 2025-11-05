@@ -9,11 +9,6 @@
 .rows {
   display: flex;
   flex-direction: column;
-  @media (max-width: 768px) {
-    display: flex;
-    justify-content: space-between;
-    overflow: auto;
-  }
 }
 
 .row {
@@ -24,36 +19,52 @@
   display: flex;
   align-items: center;
   padding: 6px 16px;
-  @media screen and (min-width: 30em) {
-    padding: 8px 20px;
-  }
-
-  @media (max-width: 768px) {
-    border-radius: 0;
-    flex-direction: column;
-  }
 }
 
 .rowActive {
   color: hsl(217deg 83% 57%);
   background: hsla(217deg, 83%, 57%, 0.2);
-
-  @media (max-width: 768px) {
-    background: none;
-  }
 }
 
 .label {
   /* padding-left: 14px; */
   font-size: 0.75em;
   white-space: nowrap;
-  @media (max-width: 768px) {
+}
+
+@media screen and (min-width: 30em) {
+  .row {
+    padding: 8px 20px;
+  }
+  .label {
+    font-size: 1em;
+  }
+}
+
+@media (max-width: 768px) {
+  .root {
+    padding: 6px;
+    margin: 6px;
+  }
+  .rows {
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  .row {
+    border-radius: 0;
+    flex-direction: column;
+    padding: 6px 12px;
+  }
+  .rowActive {
+    background: none;
+  }
+  .label {
     padding-left: 0;
     padding-top: 5px;
-  }
-
-  @media screen and (min-width: 30em) {
-    font-size: 1em;
+    font-size: 0.9em;
   }
 }
 

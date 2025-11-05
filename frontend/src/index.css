@@ -36,12 +36,20 @@ input {
   height: var(--input-height);
   margin: 10px;
   padding: 0 8px;
+  background-color: #1e1e1e; /* ensure contrast on mobile */
+  caret-color: #ffffff;
 }
 input[type="file"] {
   line-height: var(--input-height);
 }
 input:focus {
   box-shadow: rgba(66, 153, 225, 0.6) 0px 0px 0px 3px;
+}
+
+/* placeholder visibility on dark backgrounds */
+input::placeholder,
+textarea::placeholder {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 select {
@@ -52,8 +60,29 @@ select {
   height: 30px;
   padding: 0 8px;
   margin: 10px;
+  background-color: #1e1e1e; /* ensure contrast on mobile */
 }
 select:focus {
   box-shadow: rgba(66, 153, 225, 0.6) 0px 0px 0px 3px;
 }
 
+/* Textareas match dark theme as well */
+textarea {
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  color: inherit;
+  font-size: inherit;
+  margin: 10px;
+  padding: 8px;
+  background-color: #1e1e1e;
+  caret-color: #ffffff;
+}
+
+/* Tame mobile/webkit autofill white/yellow background */
+input:-webkit-autofill,
+select:-webkit-autofill,
+textarea:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff;
+  box-shadow: 0 0 0 1000px #1e1e1e inset;
+  transition: background-color 9999s ease-out 0s;
+}
