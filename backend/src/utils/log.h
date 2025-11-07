@@ -13,29 +13,11 @@
     }                                                                          \
   }
 
-#define CUDA_ASSERT(expression)                                                \
-  {                                                                            \
-    cudaError status = expression;                                             \
-    if (status != cudaSuccess) {                                               \
-      SPDLOG_ERROR("cuda function return failed. status={}", int(status));     \
-      abort();                                                                 \
-    }                                                                          \
-  }
-
-#define NVJPEG_ASSERT(expression)                                              \
-  {                                                                            \
-    nvjpegStatus_t status = expression;                                        \
-    if (status != NVJPEG_STATUS_SUCCESS) {                                     \
-      SPDLOG_ERROR("nvjpeg function return failed. status={}", int(status));   \
-      abort();                                                                 \
-    }                                                                          \
-  }
-
 #define SQLITE_ASSERT(expression)                                              \
   {                                                                            \
     int status = expression;                                                   \
     if (status != SQLITE_OK) {                                                 \
-      SPDLOG_ERROR("sqlite function return failed. status={}", int(status));   \
+      SPDLOG_ERROR("Sqlite function return failed. status={}", int(status));   \
       abort();                                                                 \
     }                                                                          \
   }

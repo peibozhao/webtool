@@ -37,7 +37,7 @@ jobs:
         run: |
           cmake -S . -B build
           cmake --build build
-          cmake --install build --prefix package --component Runtime
+          cmake --install build --prefix package --component Runtime --strip
       - name: Pack backend
         run: tar -cvf backend.tar -C backend/package .
       - name: Upload backend

@@ -10,16 +10,15 @@ class SuperResolution : public SuperResolutionService::Service {
 public:
   SuperResolution();
 
-  grpc::Status Times4(grpc::ServerContext *context, const ImageRequest *request,
-                      ImageResponse *response) override;
-
-  grpc::Status Times2(grpc::ServerContext *context, const ImageRequest *request,
-                      ImageResponse *response) override;
+  grpc::Status Times4(grpc::ServerContext *context, const Times4Request *request,
+                      Times4Response *response) override;
 
 private:
   cudaStream_t stream_;
   nvinfer1::ICudaEngine *engine_;
   nvinfer1::IExecutionContext *infer_context_;
   nvjpegHandle_t nvjpeg_handle_;
+  nvinfer1::Dims min_dims_;
+  nvinfer1::Dims max_dims_;
 };
 

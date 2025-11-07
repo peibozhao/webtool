@@ -13,22 +13,21 @@
 #include <nvjpeg.h>
 #include <opencv2/opencv.hpp>
 
-#define NVJPEG_CHECK(expression)                                               \
-  {                                                                            \
-    nvjpegStatus_t status = expression;                                        \
-    if (status != NVJPEG_STATUS_SUCCESS) {                                     \
-      SPDLOG_ERROR("nvjpeg function return failed, status is {}",              \
-                   int(status));                                               \
-      return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "TODO");         \
-    }                                                                          \
-  }
-
-#define CUDA_CHECK(expression)                                                 \
+#define CUDA_ASSERT(expression)                                                \
   {                                                                            \
     cudaError status = expression;                                             \
     if (status != cudaSuccess) {                                               \
-      SPDLOG_ERROR("cuda function return failed, status is {}", int(status));  \
-      return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "TODO");         \
+      SPDLOG_ERROR("cuda function return failed. status={}", int(status));     \
+      abort();                                                                 \
+    }                                                                          \
+  }
+
+#define NVJPEG_ASSERT(expression)                                              \
+  {                                                                            \
+    nvjpegStatus_t status = expression;                                        \
+    if (status != NVJPEG_STATUS_SUCCESS) {                                     \
+      SPDLOG_ERROR("nvJPEG function return failed. status={}", int(status));   \
+      abort();                                                                 \
     }                                                                          \
   }
 
@@ -55,30 +54,43 @@ SuperResolution::SuperResolution() {
   ASSERT(runtime != nullptr);
   engine_ = runtime->deserializeCudaEngine(fcontent.data(), fcontent.size());
   ASSERT(engine_ != nullptr);
+  ASSERT(engine_->getNbOptimizationProfiles() == 1);
+  min_dims_ =
+      engine_->getProfileShape("input", 0, nvinfer1::OptProfileSelector::kMIN);
+  SPDLOG_INFO("Tensorrt engine profile mininum shape {}", min_dims_);
+  max_dims_ =
+      engine_->getProfileShape("input", 0, nvinfer1::OptProfileSelector::kMAX);
+  SPDLOG_INFO("Tensorrt engine profile maximum shape {}", max_dims_);
   infer_context_ = engine_->createExecutionContext();
   ASSERT(infer_context_ != nullptr);
-
   NVJPEG_ASSERT(nvjpegCreateSimple(&nvjpeg_handle_));
   delete runtime;
 }
 
 grpc::Status SuperResolution::Times4(grpc::ServerContext *context,
-                                     const ImageRequest *request,
-                                     ImageResponse *response) {
+                                     const Times4Request *request,
+                                     Times4Response *response) {
   auto start_time = std::chrono::system_clock::now();
-
-  nvjpegJpegState_t jpeg_state;
-  NVJPEG_ASSERT(nvjpegJpegStateCreate(nvjpeg_handle_, &jpeg_state));
 
   int components;
   nvjpegChromaSubsampling_t subsample;
   int widths[NVJPEG_MAX_COMPONENT], heights[NVJPEG_MAX_COMPONENT];
-  NVJPEG_CHECK(nvjpegGetImageInfo(
+  nvjpegStatus_t nvjpeg_status = nvjpegGetImageInfo(
       nvjpeg_handle_, (const unsigned char *)request->image().data(),
-      request->image().size(), &components, &subsample, widths, heights));
+      request->image().size(), &components, &subsample, widths, heights);
+  if (nvjpeg_status != NVJPEG_STATUS_SUCCESS) {
+    SPDLOG_ERROR("nvJPEG function return failed. status={}",
+                 int(nvjpeg_status));
+    return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "图像格式错误");
+  }
 
   int width = widths[0], height = heights[0];
   SPDLOG_INFO("Input image width {} height {}", width, height);
+  if (width < min_dims_.d[2] || width > max_dims_.d[2] ||
+      height < min_dims_.d[2] || height > max_dims_.d[2]) {
+    SPDLOG_ERROR("Image size is invalid");
+    return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "图像尺寸不支持");
+  }
 
   uint8_t *nvjpeg_image_buffer;
   CUDA_ASSERT(
@@ -91,10 +103,17 @@ grpc::Status SuperResolution::Times4(grpc::ServerContext *context,
   nvjpeg_image.pitch[2] = width;
   nvjpeg_image.channel[2] = nvjpeg_image_buffer + width * height * 2;
 
-  NVJPEG_CHECK(nvjpegDecode(
+  nvjpegJpegState_t jpeg_state;
+  NVJPEG_ASSERT(nvjpegJpegStateCreate(nvjpeg_handle_, &jpeg_state));
+  nvjpeg_status = nvjpegDecode(
       nvjpeg_handle_, jpeg_state,
       (const unsigned char *)request->image().data(), request->image().size(),
-      nvjpegOutputFormat_t::NVJPEG_OUTPUT_RGB, &nvjpeg_image, stream_));
+      nvjpegOutputFormat_t::NVJPEG_OUTPUT_RGB, &nvjpeg_image, stream_);
+  if (nvjpeg_status != NVJPEG_STATUS_SUCCESS) {
+    SPDLOG_ERROR("nvJPEG function return failed. status={}",
+                 int(nvjpeg_status));
+    return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "图像解码失败");
+  }
 
   nvinfer1::Dims4 input_dims{1, 3, height, width};
   int input_size =
@@ -164,7 +183,11 @@ grpc::Status SuperResolution::Times4(grpc::ServerContext *context,
       stream_));
 
   cudaStreamSynchronize(stream_);
-  CUDA_CHECK(cudaGetLastError());
+  cudaError cuda_status = cudaGetLastError();
+  if (cuda_status != cudaSuccess) {
+    SPDLOG_ERROR("cuda function return failed. status={}", int(cuda_status));
+    return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "未知错误");
+  }
 
   cudaFreeAsync(input_dev_ptr, stream_);
   cudaFreeAsync(nvjpeg_image_buffer, stream_);
@@ -178,12 +201,6 @@ grpc::Status SuperResolution::Times4(grpc::ServerContext *context,
   SPDLOG_INFO("Super resolution cost {}",
               std::chrono::duration_cast<std::chrono::milliseconds>(
                   end_time - start_time));
-  return grpc::Status::OK;
-}
-
-grpc::Status SuperResolution::Times2(grpc::ServerContext *context,
-                                     const ImageRequest *request,
-                                     ImageResponse *response) {
   return grpc::Status::OK;
 }
 

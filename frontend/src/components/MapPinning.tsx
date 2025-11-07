@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { notification } from "antd"
-import { backendServer } from "../common/utils";
+import { backendServer, processFetchResponse } from "../common/utils";
 import s from "./MapPinning.module.css"
 
 declare global {
@@ -68,14 +68,9 @@ function MapPinning() {
         method: "POST",
         body: JSON.stringify({ name: titleText, password: password, markers: body_content }),
       });
-      if (!response.ok) {
-        notifyApi.error({ message: `上传失败: ${await response.text()}`, duration: 3 });
-        console.error(response);
-        return;
-      }
-      notifyApi.success({ message: "上传成功", duration: 1 });
+      await processFetchResponse(response, notifyApi, '上传');
     } catch (error) {
-      notifyApi.error({ message: "上传失败", duration: 3 });
+      notifyApi.error({ message: '上传失败', duration: 3 });
       console.error(error);
     }
   };
@@ -85,9 +80,7 @@ function MapPinning() {
       const { BMapGL } = window;
 
       const response = await fetch(`${backend_server}/api/map_pinning/download?name=${titleText}`);
-      if (!response.ok) {
-        notifyApi.error({ message: `下载失败: ${await response.text()}`, duration: 3 });
-        console.error(response);
+      if (!await processFetchResponse(response, notifyApi, '下载')) {
         return;
       }
       const { markers } = await response.json();
@@ -101,9 +94,8 @@ function MapPinning() {
         setMarkerPicked(marker);
         mapInstance.current.addOverlay(marker);
       });
-      notifyApi.success({ message: "下载成功", duration: 1 });
     } catch (error) {
-      notifyApi.error({ message: "下载失败", duration: 3 });
+      notifyApi.error({ message: '下载失败', duration: 3 });
       console.error(error);
     }
   };

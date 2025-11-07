@@ -41,17 +41,17 @@ grpc::Status MapPinning::Upload(grpc::ServerContext *context,
   absl::Status absl_status =
       google::protobuf::util::MessageToJsonString(*request, &save_text);
   if (!absl_status.ok()) {
-    SPDLOG_ERROR("Convert protobuf to json failed. code {}",
+    SPDLOG_ERROR("Convert protobuf to json failed. code={}",
                  int(absl_status.code()));
-    return grpc::Status(grpc::StatusCode::INTERNAL, "Format convert failed");
+    return grpc::Status(grpc::StatusCode::INTERNAL, "格式转换错误");
   }
 
   SPDLOG_INFO("Save map marker set {} password {} text {}", request->name(),
               request->password(), save_text);
 
   if (request->name().empty()) {
-    SPDLOG_WARN("Map marker set name is empty");
-    return grpc::Status::OK;
+    SPDLOG_ERROR("Map marker set name is empty");
+    return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "集合名称不能为空");
   }
   SQLITE_ASSERT(sqlite3_reset(sqlite_insert_statement_));
   SQLITE_ASSERT(sqlite3_bind_text(sqlite_insert_statement_, 1,
@@ -71,17 +71,17 @@ grpc::Status MapPinning::Upload(grpc::ServerContext *context,
 
   int sqlite_ret = sqlite3_step(sqlite_insert_statement_);
   if (sqlite_ret != SQLITE_DONE) {
-    SPDLOG_ERROR("Sqlite insert failed, code {}", sqlite_ret);
-    return grpc::Status(grpc::StatusCode::INTERNAL, "Sqlite insert failed");
+    SPDLOG_ERROR("Sqlite insert failed. code={}", sqlite_ret);
+    return grpc::Status(grpc::StatusCode::INTERNAL, "数据存储异常");
   }
 
   sqlite_ret = sqlite3_changes(sqlite_handle_);
   if (sqlite_ret == 0) {
     SPDLOG_WARN("Map markers insert failed, password error");
-    return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, "Password error");
+    return grpc::Status(grpc::StatusCode::PERMISSION_DENIED, "密码错误");
   } else if (sqlite_ret < 0) {
     SPDLOG_ERROR("Map markers insert failed. code={}", sqlite_ret);
-    return grpc::Status(grpc::StatusCode::INTERNAL, "Sqlite insert failed");
+    return grpc::Status(grpc::StatusCode::INTERNAL, "数据存储异常");
   }
 
   SQLITE_ASSERT(sqlite3_reset(sqlite_insert_statement_));
@@ -103,13 +103,10 @@ grpc::Status MapPinning::Download(grpc::ServerContext *context,
   int sqlite_ret = sqlite3_step(sqlite_search_statement_);
   if (sqlite_ret == SQLITE_DONE) {
     SPDLOG_WARN("Map marker set {} not found", request->name());
-    return grpc::Status(
-        grpc::StatusCode::NOT_FOUND,
-        std::format("Map marker set {} not exist", request->name()));
+    return grpc::Status(grpc::StatusCode::NOT_FOUND, "地点集合不存在");
   } else if (sqlite_ret != SQLITE_ROW) {
-    return grpc::Status(
-        grpc::StatusCode::INTERNAL,
-        std::format("Sqlite search failed, name {}", request->name()));
+    SPDLOG_ERROR("Sqlite search failed. code={}", sqlite_ret);
+    return grpc::Status(grpc::StatusCode::INTERNAL, "数据查找异常");
   }
 
   std::string text =
@@ -124,8 +121,7 @@ grpc::Status MapPinning::Download(grpc::ServerContext *context,
   if (!absl_status.ok()) {
     SPDLOG_ERROR("Parse json to protobuf failed. code={}, text='{}'",
                  int(absl_status.code()), text);
-    return grpc::Status(grpc::StatusCode::INTERNAL,
-                        std::format("Convert format failed"));
+    return grpc::Status(grpc::StatusCode::INTERNAL, "数据转换异常");
   }
   SQLITE_ASSERT(sqlite3_reset(sqlite_search_statement_));
   return grpc::Status::OK;

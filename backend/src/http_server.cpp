@@ -17,6 +17,20 @@ DECLARE_int32(grpc_port);
 DEFINE_int32(http_port, 0, "Port for service");
 DEFINE_string(grpc_servers, "", "gRPC servers address");
 
+std::vector<std::string> GetGRPCServerAddresses() {
+  static std::once_flag run_once;
+  static std::vector<std::string> grpc_server_addrs;
+  std::call_once(run_once, [] {
+    auto servers_sview = FLAGS_grpc_servers | std::views::split(',');
+    std::for_each(servers_sview.begin(), servers_sview.end(),
+                  [](auto &&server) {
+                    grpc_server_addrs.push_back(
+                        std::string(server.begin(), server.end()));
+                  });
+  });
+  return grpc_server_addrs;
+}
+
 std::shared_ptr<grpc::Channel>
 GRPCServiceDiscovery(const std::vector<std::string> &addrs,
                      const std::string &cmd) {
@@ -49,24 +63,7 @@ GRPCServiceDiscovery(const std::vector<std::string> &addrs,
       return grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
     }
   }
-  throw std::runtime_error("GRPC server is invalid");
-}
-
-std::vector<std::string> GetGRPCServerAddresses() {
-  static std::once_flag run_once;
-  static std::vector<std::string> grpc_server_addrs;
-  std::call_once(run_once, [] {
-    if (FLAGS_grpc_port > 0) {
-      grpc_server_addrs.push_back(std::format("127.0.0.1:{}", FLAGS_grpc_port));
-    }
-    auto servers_sview = FLAGS_grpc_servers | std::views::split(',');
-    std::for_each(servers_sview.begin(), servers_sview.end(),
-                  [](auto &&server) {
-                    grpc_server_addrs.push_back(
-                        std::string(server.begin(), server.end()));
-                  });
-  });
-  return grpc_server_addrs;
+  throw std::runtime_error("服务器目前不可用");
 }
 
 template <typename ServiceType, auto Method>
@@ -113,15 +110,6 @@ void RegisterGetHandler(std::unique_ptr<httplib::Server> &server_ptr,
 
 std::unique_ptr<httplib::Server> CreateHTTPServer() {
   SPDLOG_INFO("HTTP server starting");
-  std::vector<std::string> addrs;
-  if (FLAGS_grpc_port > 0) {
-    addrs.push_back(std::format("127.0.0.1:{}", FLAGS_grpc_port));
-  }
-  auto servers_sview = FLAGS_grpc_servers | std::views::split(',');
-  std::for_each(servers_sview.begin(), servers_sview.end(),
-                [&addrs](auto &&server) {
-                  addrs.push_back(std::string(server.begin(), server.end()));
-                });
 
   std::unique_ptr<httplib::Server> http_server_ptr =
       std::make_unique<httplib::Server>();
@@ -143,17 +131,13 @@ std::unique_ptr<httplib::Server> CreateHTTPServer() {
     } catch (const std::invalid_argument &e) {
       SPDLOG_WARN("Catch invalid_argument exception {}", e.what());
       res.status = httplib::StatusCode::BadRequest_400;
-      res.set_header("EXCEPTION_WHAT", e.what());
+      res.body = e.what();
     } catch (const std::exception &e) {
       SPDLOG_WARN("Catch exception {}", e.what());
       res.status = httplib::StatusCode::InternalServerError_500;
-      res.set_header("EXCEPTION_WHAT", e.what());
+      res.body = e.what();
     }
   });
-
-  httplib::Headers default_headers;
-  default_headers.insert({"Access-Control-Allow-Origin", "*"});
-  http_server_ptr->set_default_headers(default_headers);
 
 #define REGISTER_HTTP_HANDLER(Method, Uri, Service, RPC)                       \
   Register##Method##Handler<Service, &Service::Stub::RPC>(http_server_ptr, Uri);

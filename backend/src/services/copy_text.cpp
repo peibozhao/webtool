@@ -46,14 +46,14 @@ grpc::Status CopyText::Submit(grpc::ServerContext *context,
                               SubmitResponse *response) {
   if (request->text().empty()) {
     SPDLOG_WARN("Copy submit text is empty, skip");
-    return grpc::Status::OK;
+    return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "文本不能为空");
   }
   SQLITE_ASSERT(sqlite3_reset(sqlite_insert_statement_));
   SQLITE_ASSERT(sqlite3_bind_text(sqlite_insert_statement_, 1,
                                   request->text().c_str(), -1,
                                   SQLITE_TRANSIENT));
   if (sqlite3_step(sqlite_insert_statement_) != SQLITE_ROW) {
-    return grpc::Status(grpc::StatusCode::INTERNAL, "Sqlite insert failed");
+    return grpc::Status(grpc::StatusCode::INTERNAL, "数据存储错误");
   }
   std::string code =
       (const char *)sqlite3_column_text(sqlite_insert_statement_, 0);
@@ -78,11 +78,10 @@ grpc::Status CopyText::Retrieve(grpc::ServerContext *context,
   int step_ret = sqlite3_step(sqlite_search_statement_);
   if (step_ret == SQLITE_DONE) {
     SPDLOG_WARN("Copy code {} not found", request->code());
-    return grpc::Status::OK;
+    return grpc::Status(grpc::StatusCode::NOT_FOUND, "未找到当前代码");
   } else if (step_ret != SQLITE_ROW) {
-    return grpc::Status(
-        grpc::StatusCode::INTERNAL,
-        std::format("Sqlite search failed. code={}", request->code()));
+    SPDLOG_ERROR("Sqlite search failed. code={}", request->code());
+    return grpc::Status(grpc::StatusCode::INTERNAL, "数据查找错误");
   }
 
   std::string text =

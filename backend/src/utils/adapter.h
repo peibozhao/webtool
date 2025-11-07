@@ -10,6 +10,9 @@
 #include "spdlog/spdlog.h"
 #include "super_resolution_service.pb.h"
 
+void ConvertGRPCStatusToHTTPCode(const grpc::Status &grpc_status,
+                                 httplib::Response &res);
+
 template <typename M>
 concept DerivedFromMessage = std::derived_from<M, google::protobuf::Message>;
 
@@ -23,79 +26,62 @@ void ConvertProtoToHTTPResponse(const M &msg, httplib::Response *res) {
   SPDLOG_INFO("Use empty GRPC response to HTTP response");
 }
 
-void ConvertGRPCStatusToHTTPCode(const grpc::Status &grpc_status,
-                                 httplib::Response &res);
+#define DEFINE_GRPC_HTTP_CONVERT(rpc, request_method, response_method)         \
+  template <>                                                                  \
+  inline void ConvertHTTPRequestToProto(const httplib::Request &req,           \
+                                        rpc##Request *msg) {                   \
+    request_method;                                                            \
+  }                                                                            \
+                                                                               \
+  template <>                                                                  \
+  inline void ConvertProtoToHTTPResponse(const rpc##Response &msg,             \
+                                         httplib::Response *res) {             \
+    response_method;                                                           \
+  }
 
-template <>
-inline void ConvertHTTPRequestToProto(const httplib::Request &req,
-                                      SubmitRequest *msg) {
-  msg->set_text(req.get_param_value("text"));
-}
+DEFINE_GRPC_HTTP_CONVERT(Submit,
+    msg->set_text(req.get_param_value("text")),
+    res->set_content(std::format(R"({{"code": "{}"}})",
+        msg.code()), "application/json"));
 
-template <>
-inline void ConvertProtoToHTTPResponse(const SubmitResponse &msg,
-                                       httplib::Response *res) {
-  res->set_content(std::format(R"({{"code": "{}"}})", msg.code()),
-                   "application/json");
-}
+DEFINE_GRPC_HTTP_CONVERT(Retrieve,
+    msg->set_code(req.get_param_value("code")),
+    res->set_content(std::format(R"({{"text": "{}"}})",
+        msg.text()), "application/json"));
+ 
+DEFINE_GRPC_HTTP_CONVERT(GenerateImage,
+  msg->set_text(req.get_param_value("text")),
+  res->set_content(msg.image(), "image/jpg"));
 
-template <>
-inline void ConvertHTTPRequestToProto(const httplib::Request &req,
-                                      RetrieveRequest *msg) {
-  msg->set_code(req.get_param_value("code"));
-}
+DEFINE_GRPC_HTTP_CONVERT(
+    ParseText,
+    const httplib::FormData file_form_data = req.form.get_file("image");
+    if (file_form_data.content.empty()) {
+      throw std::invalid_argument("File content is empty");
+    }
+    msg->set_image(file_form_data.content);,
+    res->set_content(std::format(R"({{"text":"{}"}})", msg.text()),
+                       "application/json"));
 
-template <>
-inline void ConvertProtoToHTTPResponse(const RetrieveResponse &msg,
-                                       httplib::Response *res) {
-  res->set_content(std::format(R"({{"text": "{}"}})", msg.text()),
-                   "application/json");
-}
-
-template <>
-inline void ConvertHTTPRequestToProto(const httplib::Request &req,
-                                      GenerateImageRequest *msg) {
-  msg->set_text(req.get_param_value("text"));
-}
-
-template <>
-inline void ConvertProtoToHTTPResponse(const GenerateImageResponse &msg,
-                                       httplib::Response *res) {
-  res->set_content(msg.image(), "image/jpg");
-}
-
-template <>
-inline void ConvertHTTPRequestToProto(const httplib::Request &req,
-                                      ParseTextRequest *msg) {
+DEFINE_GRPC_HTTP_CONVERT(Times4,
   const httplib::FormData file_form_data = req.form.get_file("image");
   if (file_form_data.content.empty()) {
     throw std::invalid_argument("File content is empty");
   }
-  msg->set_image(file_form_data.content);
-}
+  msg->set_image(file_form_data.content);,
+  res->set_content(msg.image(), "image/jpg"));
 
-template <>
-inline void ConvertProtoToHTTPResponse(const ParseTextResponse &msg,
-                                       httplib::Response *res) {
-  res->set_content(std::format(R"({{"text":"{}"}})", msg.text()),
-                   "application/json");
-}
-
-template <>
-inline void ConvertHTTPRequestToProto(const httplib::Request &req,
-                                      ImageRequest *msg) {
-  const httplib::FormData file_form_data = req.form.get_file("image");
-  if (file_form_data.content.empty()) {
-    throw std::invalid_argument("File content is empty");
+DEFINE_GRPC_HTTP_CONVERT(Download, 
+  msg->set_name(req.get_param_value("name")),
+  nlohmann::json res_json;
+  for (const Marker &marker : msg.markers()) {
+    nlohmann::json marker_json;
+    marker_json["lat"] = marker.lat();
+    marker_json["lng"] = marker.lng();
+    marker_json["text"] = marker.text();
+    res_json["markers"].push_back(marker_json);
   }
-  msg->set_image(file_form_data.content);
-}
-
-template <>
-inline void ConvertProtoToHTTPResponse(const ImageResponse &msg,
-                                       httplib::Response *res) {
-  res->set_content(msg.image(), "image/jpg");
-}
+  res->body = res_json.dump();)
 
 template <>
 inline void ConvertHTTPRequestToProto(const httplib::Request &req,
@@ -114,22 +100,3 @@ inline void ConvertHTTPRequestToProto(const httplib::Request &req,
   }
 }
 
-template <>
-inline void ConvertHTTPRequestToProto(const httplib::Request &req,
-                                      DownloadRequest *msg) {
-  msg->set_name(req.get_param_value("name"));
-}
-
-template <>
-inline void ConvertProtoToHTTPResponse(const DownloadResponse &msg,
-                                       httplib::Response *res) {
-  nlohmann::json res_json;
-  for (const Marker &marker : msg.markers()) {
-    nlohmann::json marker_json;
-    marker_json["lat"] = marker.lat();
-    marker_json["lng"] = marker.lng();
-    marker_json["text"] = marker.text();
-    res_json["markers"].push_back(marker_json);
-  }
-  res->body = res_json.dump();
-}

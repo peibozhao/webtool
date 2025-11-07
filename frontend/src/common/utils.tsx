@@ -6,3 +6,13 @@ export function backendServer() {
   return `${protocol}//${hostname}:${port}`;
 }
 
+export async function processFetchResponse(response: Response, notifyApi: any, actionName: string) {
+  if (!response.ok) {
+    const text = await response.text();
+    notifyApi.error({ message: `${actionName}失败`, description: text, duration: 3 });
+    console.error(response);
+    return false;
+  }
+  notifyApi.success({ message: `${actionName}成功`, duration: 1 });
+  return true;
+}

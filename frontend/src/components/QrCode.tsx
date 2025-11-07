@@ -1,12 +1,14 @@
-
 import { useState, useRef } from "react";
-import { backendServer } from '../common/utils';
+import { notification } from "antd"
+import { backendServer, processFetchResponse } from '../common/utils';
 
 function QrCode() {
   const [text, setText] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [notifyApi, notifyContext] = notification.useNotification();
 
   const backend_server = backendServer();
 
@@ -28,10 +30,13 @@ function QrCode() {
         body: `text=${text}`,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       });
-      const data = await response.blob();
-      setImageUrl(URL.createObjectURL(data));
+      if (await processFetchResponse(response, notifyApi, '提交')) {
+        const data = await response.blob();
+        setImageUrl(URL.createObjectURL(data));
+      }
     } catch (error) {
       setImageUrl('');
+      notifyApi.error({ message: '提交失败', duration: 3 });
       console.error("异常: ", error);
     }
   };
@@ -47,15 +52,19 @@ function QrCode() {
         method: "POST",
         body: formData,
       });
-      const data = await response.json();
-      setText(data.text)
+      if (await processFetchResponse(response, notifyApi, '监测')) {
+        const data = await response.json();
+        setText(data.text)
+      }
     } catch (error) {
+      notifyApi.error({ message: '监测失败', duration: 3 });
       console.error("异常: ", error);
     }
   };
 
   return (
     <div>
+      {notifyContext}
       <div>
         <input type="text" value={text} onChange={(e) => setText(e.target.value)} />
         <button onClick={handleSubmitText}>生成</button>
