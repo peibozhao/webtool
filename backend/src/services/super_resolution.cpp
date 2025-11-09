@@ -86,7 +86,7 @@ grpc::Status SuperResolution::Times4(grpc::ServerContext *context,
 
   int width = widths[0], height = heights[0];
   SPDLOG_INFO("Input image width {} height {}", width, height);
-  if (width < min_dims_.d[2] || width > max_dims_.d[2] ||
+  if (width < min_dims_.d[3] || width > max_dims_.d[3] ||
       height < min_dims_.d[2] || height > max_dims_.d[2]) {
     SPDLOG_ERROR("Image size is invalid");
     return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "图像尺寸不支持");

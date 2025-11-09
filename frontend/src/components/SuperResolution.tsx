@@ -44,7 +44,7 @@ function SuperResolution() {
     <div className={s.root}>
       {notifyContext}
       <div>
-        <input type="file" accept="image/*" onChange={handleFileChange} />
+        <input type="file" accept=".jpg,.jpeg" onChange={handleFileChange} />
         <button onClick={handleUpload}>上传</button>
       </div>
       <div className={s.imageContainer}>

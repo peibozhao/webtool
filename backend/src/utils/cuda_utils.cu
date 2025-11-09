@@ -16,10 +16,10 @@ __global__ void convertFloatToUint8(const float *in, int size, uint8_t *out) {
 
 void launchConvertUint8ToFloat(const uint8_t *in, int size, float *out,
                                cudaStream_t stream) {
-  convertUint8ToFloat<<<size / 64, 64, 0, stream>>>(in, size, out);
+  convertUint8ToFloat<<<(size + 63) / 64, 64, 0, stream>>>(in, size, out);
 }
 
 void launchConvertFloatToUint8(const float *in, int size, uint8_t *out,
                                cudaStream_t stream) {
-  convertFloatToUint8<<<size / 64, 64, 0, stream>>>(in, size, out);
+  convertFloatToUint8<<<(size + 63) / 64, 64, 0, stream>>>(in, size, out);
 }

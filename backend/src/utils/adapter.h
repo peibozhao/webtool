@@ -48,7 +48,7 @@ DEFINE_GRPC_HTTP_CONVERT(Retrieve,
     msg->set_code(req.get_param_value("code")),
     res->set_content(std::format(R"({{"text": "{}"}})",
         msg.text()), "application/json"));
- 
+
 DEFINE_GRPC_HTTP_CONVERT(GenerateImage,
   msg->set_text(req.get_param_value("text")),
   res->set_content(msg.image(), "image/jpg"));
@@ -71,7 +71,7 @@ DEFINE_GRPC_HTTP_CONVERT(Times4,
   msg->set_image(file_form_data.content);,
   res->set_content(msg.image(), "image/jpg"));
 
-DEFINE_GRPC_HTTP_CONVERT(Download, 
+DEFINE_GRPC_HTTP_CONVERT(Download,
   msg->set_name(req.get_param_value("name")),
   nlohmann::json res_json;
   for (const Marker &marker : msg.markers()) {
